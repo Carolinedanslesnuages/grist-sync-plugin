@@ -106,254 +106,220 @@ const enabledCount = computed(() => {
 <template>
   <div class="mapping-table">
     <div class="table-header">
-      <h3>📋 Configuration du mapping (façon Excel)</h3>
-      <p class="help-text">
+      <h3 class="fr-h5">📋 Configuration du mapping (façon Excel)</h3>
+      <p class="fr-text--sm">
         Définissez la correspondance entre vos colonnes Grist et les champs de l'API
       </p>
     </div>
     
-    <!-- Barre d'actions -->
-    <div class="action-bar">
-      <button 
-        v-if="sampleData" 
-        @click="autoGenerateMappings" 
-        class="btn-auto-generate"
+    <!-- Barre d'actions avec composants DSFR -->
+    <div class="action-bar fr-mb-2w">
+      <DsfrButton
+        v-if="sampleData"
+        @click="autoGenerateMappings"
+        label="Générer automatiquement"
+        icon="ri-magic-line"
         title="Générer automatiquement les mappings à partir des données API"
-      >
-        ✨ Générer automatiquement
-      </button>
+      />
       <div class="bulk-actions">
-        <button 
-          @click="selectAll" 
-          class="btn-bulk"
+        <DsfrButton
+          @click="selectAll"
+          label="Tout sélectionner"
+          icon="ri-checkbox-multiple-line"
           :disabled="mappings.length === 0"
+          secondary
+          size="sm"
           title="Sélectionner tous les mappings"
-        >
-          ✅ Tout sélectionner
-        </button>
-        <button 
-          @click="deselectAll" 
-          class="btn-bulk"
+        />
+        <DsfrButton
+          @click="deselectAll"
+          label="Tout désélectionner"
+          icon="ri-checkbox-blank-line"
           :disabled="mappings.length === 0"
+          secondary
+          size="sm"
           title="Désélectionner tous les mappings"
-        >
-          ⬜ Tout désélectionner
-        </button>
+        />
       </div>
-      <div v-if="mappings.length > 0" class="mapping-count">
-        {{ enabledCount }} / {{ mappings.length }} activé(s)
-      </div>
+      <DsfrBadge
+        v-if="mappings.length > 0"
+        :label="`${enabledCount} / ${mappings.length} activé(s)`"
+        type="success"
+        class="mapping-badge"
+      />
     </div>
     
     <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th class="col-checkbox">Actif</th>
-            <th class="col-number">#</th>
-            <th class="col-grist">Colonne Grist</th>
-            <th class="col-arrow">→</th>
-            <th class="col-api">Champ API</th>
-            <th class="col-actions">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr 
-            v-for="(mapping, index) in mappings" 
-            :key="index" 
-            class="mapping-row"
-            :class="{ 'disabled-row': mapping.enabled === false }"
-          >
-            <td class="col-checkbox">
-              <input
-                type="checkbox"
-                :checked="mapping.enabled !== false"
-                @change="updateMapping(index, 'enabled', ($event.target as HTMLInputElement).checked)"
-                class="checkbox-field"
-                title="Activer/désactiver ce mapping"
-              />
-            </td>
-            <td class="col-number">{{ index + 1 }}</td>
-            <td class="col-grist">
-              <input
-                type="text"
-                :value="mapping.gristColumn"
-                @input="updateMapping(index, 'gristColumn', ($event.target as HTMLInputElement).value)"
-                placeholder="Ex: Name, Email, Score..."
-                class="input-field"
-                :disabled="mapping.enabled === false"
-              />
-            </td>
-            <td class="col-arrow">
-              <span class="arrow">←</span>
-            </td>
-            <td class="col-api">
-              <input
-                type="text"
-                :value="mapping.apiField"
-                @input="updateMapping(index, 'apiField', ($event.target as HTMLInputElement).value)"
-                placeholder="Ex: user.name, email..."
-                class="input-field"
-                :list="`api-fields-${index}`"
-                :disabled="mapping.enabled === false"
-              />
-              <datalist v-if="availableApiFields.length > 0" :id="`api-fields-${index}`">
-                <option v-for="field in availableApiFields" :key="field" :value="field" />
-              </datalist>
-            </td>
-            <td class="col-actions">
-              <button
-                @click="removeMapping(index)"
-                class="btn-remove"
-                title="Supprimer cette ligne"
-              >
-                🗑️
-              </button>
-            </td>
-          </tr>
-          <tr v-if="mappings.length === 0" class="empty-row">
-            <td colspan="6" class="empty-message">
-              Aucun mapping défini. Cliquez sur "Générer automatiquement" ou "Ajouter une ligne" pour commencer.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="fr-table fr-table--bordered">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col" class="col-checkbox">Actif</th>
+              <th scope="col" class="col-number">#</th>
+              <th scope="col" class="col-grist">Colonne Grist</th>
+              <th scope="col" class="col-arrow">→</th>
+              <th scope="col" class="col-api">Champ API</th>
+              <th scope="col" class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr 
+              v-for="(mapping, index) in mappings" 
+              :key="index" 
+              class="mapping-row"
+              :class="{ 'disabled-row': mapping.enabled === false }"
+            >
+              <td class="col-checkbox">
+                <input
+                  type="checkbox"
+                  :checked="mapping.enabled !== false"
+                  @change="updateMapping(index, 'enabled', ($event.target as HTMLInputElement).checked)"
+                  class="fr-checkbox"
+                  :aria-label="`Activer/désactiver le mapping ${index + 1}`"
+                />
+              </td>
+              <td class="col-number">{{ index + 1 }}</td>
+              <td class="col-grist">
+                <input
+                  type="text"
+                  :value="mapping.gristColumn"
+                  @input="updateMapping(index, 'gristColumn', ($event.target as HTMLInputElement).value)"
+                  placeholder="Ex: Name, Email, Score..."
+                  class="fr-input"
+                  :disabled="mapping.enabled === false"
+                  :aria-label="`Colonne Grist ${index + 1}`"
+                />
+              </td>
+              <td class="col-arrow">
+                <span class="arrow" aria-hidden="true">←</span>
+              </td>
+              <td class="col-api">
+                <input
+                  type="text"
+                  :value="mapping.apiField"
+                  @input="updateMapping(index, 'apiField', ($event.target as HTMLInputElement).value)"
+                  placeholder="Ex: user.name, email..."
+                  class="fr-input"
+                  :list="`api-fields-${index}`"
+                  :disabled="mapping.enabled === false"
+                  :aria-label="`Champ API ${index + 1}`"
+                />
+                <datalist v-if="availableApiFields.length > 0" :id="`api-fields-${index}`">
+                  <option v-for="field in availableApiFields" :key="field" :value="field" />
+                </datalist>
+              </td>
+              <td class="col-actions">
+                <DsfrButton
+                  @click="removeMapping(index)"
+                  icon="ri-delete-bin-line"
+                  icon-only
+                  :title="`Supprimer la ligne ${index + 1}`"
+                  tertiary-no-outline
+                  size="sm"
+                />
+              </td>
+            </tr>
+            <tr v-if="mappings.length === 0" class="empty-row">
+              <td colspan="6" class="empty-message">
+                Aucun mapping défini. Cliquez sur "Générer automatiquement" ou "Ajouter une ligne" pour commencer.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
     
-    <div class="table-footer">
-      <button @click="addMapping" class="btn-add">
-        ➕ Ajouter une ligne de mapping
-      </button>
-      <div v-if="availableApiFields.length > 0" class="info-box">
-        <strong>💡 Astuce:</strong> Les champs API disponibles sont suggérés automatiquement. 
-        Vous pouvez renommer les colonnes Grist à votre convenance.
-      </div>
+    <div class="table-footer fr-mt-2w">
+      <DsfrButton
+        @click="addMapping"
+        label="Ajouter une ligne de mapping"
+        icon="ri-add-line"
+      />
+      <DsfrCallout
+        v-if="availableApiFields.length > 0"
+        class="fr-mt-2w"
+        title="Astuce"
+        content="Les champs API disponibles sont suggérés automatiquement. Vous pouvez renommer les colonnes Grist à votre convenance."
+      />
     </div>
   </div>
 </template>
 
 <style scoped>
+/* Container principal avec styles DSFR */
 .mapping-table {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin: 20px 0;
+  background: var(--background-default-grey-hover);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: var(--raised-shadow);
+  margin: 1.25rem 0;
 }
 
 .table-header h3 {
-  margin: 0 0 8px 0;
-  color: #2c3e50;
-  font-size: 1.3em;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-title-grey);
 }
 
-.help-text {
-  margin: 0 0 15px 0;
-  color: #666;
-  font-size: 0.9em;
-}
-
+/* Barre d'actions avec layout flex */
 .action-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 0.75rem;
   align-items: center;
-  margin-bottom: 15px;
-  padding: 12px;
-  background: #f5f5f5;
-  border-radius: 6px;
+  padding: 1rem;
+  background: var(--background-contrast-grey);
+  border-radius: 0.375rem;
 }
 
 .bulk-actions {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
-.btn-auto-generate {
-  padding: 10px 20px;
-  background: #2196F3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1em;
-  font-weight: 600;
-  transition: background-color 0.2s;
-}
-
-.btn-auto-generate:hover {
-  background: #1976D2;
-}
-
-.btn-bulk {
-  padding: 8px 16px;
-  background: #757575;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
-  transition: background-color 0.2s;
-}
-
-.btn-bulk:hover:not(:disabled) {
-  background: #616161;
-}
-
-.btn-bulk:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.mapping-count {
+.mapping-badge {
   margin-left: auto;
-  padding: 6px 12px;
-  background: #4CAF50;
-  color: white;
-  border-radius: 4px;
-  font-weight: 600;
-  font-size: 0.9em;
 }
 
+/* Conteneur de table responsive */
 .table-container {
   overflow-x: auto;
-  margin-bottom: 15px;
+  margin-bottom: 1rem;
 }
 
-table {
+/* Styles de table DSFR */
+.fr-table table {
   width: 100%;
-  border-collapse: collapse;
-  background: #f9f9f9;
+  background: var(--background-default-grey-hover);
 }
 
-thead {
-  background: #4CAF50;
-  color: white;
+.fr-table thead {
+  background: var(--background-contrast-info);
 }
 
-th {
-  padding: 12px;
+.fr-table th {
+  padding: 0.75rem;
   text-align: left;
-  font-weight: 600;
-  border: 1px solid #ddd;
+  font-weight: 700;
+  color: var(--text-title-grey);
 }
 
-td {
-  padding: 10px;
-  border: 1px solid #ddd;
+.fr-table td {
+  padding: 0.625rem;
+  vertical-align: middle;
 }
 
+/* Colonnes spécifiques */
 .col-checkbox {
-  width: 60px;
+  width: 3.75rem;
   text-align: center;
 }
 
 .col-number {
-  width: 50px;
+  width: 3.125rem;
   text-align: center;
-  background: #f5f5f5;
-  font-weight: bold;
+  background: var(--background-contrast-grey);
+  font-weight: 700;
+  color: var(--text-mention-grey);
 }
 
 .col-grist,
@@ -362,53 +328,46 @@ td {
 }
 
 .col-arrow {
-  width: 50px;
+  width: 3.125rem;
   text-align: center;
   font-size: 1.2em;
-  color: #4CAF50;
+  color: var(--text-action-high-blue-france);
+  font-weight: 700;
 }
 
 .col-actions {
-  width: 80px;
+  width: 5rem;
   text-align: center;
 }
 
-.checkbox-field {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.input-field {
+/* Inputs avec styles DSFR */
+.fr-input {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.95em;
   box-sizing: border-box;
   transition: border-color 0.2s, opacity 0.2s;
 }
 
-.input-field:focus {
-  outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
-}
-
-.input-field:disabled {
-  background: #f5f5f5;
-  color: #999;
+.fr-input:disabled {
+  background: var(--background-disabled-grey);
+  color: var(--text-disabled-grey);
   cursor: not-allowed;
   opacity: 0.6;
 }
 
+.fr-checkbox {
+  cursor: pointer;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* Lignes de mapping */
 .mapping-row {
-  background: white;
+  background: var(--background-default-grey-hover);
   transition: background-color 0.2s, opacity 0.2s;
 }
 
 .mapping-row:hover {
-  background: #f0f8f0;
+  background: var(--background-contrast-grey-hover);
 }
 
 .disabled-row {
@@ -416,72 +375,29 @@ td {
 }
 
 .disabled-row:hover {
-  background: #fafafa;
+  background: var(--background-contrast-grey);
 }
 
 .empty-row {
-  background: #fafafa;
+  background: var(--background-contrast-grey);
 }
 
 .empty-message {
   text-align: center;
-  color: #999;
+  color: var(--text-mention-grey);
   font-style: italic;
-  padding: 30px;
+  padding: 1.875rem;
 }
 
-.btn-remove {
-  padding: 6px 10px;
-  background: #f44336;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1em;
-  transition: background-color 0.2s;
-}
-
-.btn-remove:hover {
-  background: #d32f2f;
-}
-
+/* Footer de la table */
 .table-footer {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 1rem;
 }
 
-.btn-add {
-  padding: 10px 20px;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1em;
-  font-weight: 600;
-  transition: background-color 0.2s;
-  align-self: flex-start;
-}
-
-.btn-add:hover {
-  background: #45a049;
-}
-
-.info-box {
-  padding: 10px;
-  background: #e3f2fd;
-  border-left: 4px solid #2196F3;
-  border-radius: 4px;
-  font-size: 0.9em;
-  color: #1976D2;
-}
-
-.arrow {
-  font-weight: bold;
-}
-
-@media (max-width: 768px) {
+/* Responsive - Breakpoints DSFR */
+@media (max-width: 48rem) {
   .action-bar {
     flex-direction: column;
     align-items: stretch;
@@ -491,7 +407,7 @@ td {
     flex-direction: column;
   }
   
-  .mapping-count {
+  .mapping-badge {
     margin-left: 0;
     text-align: center;
   }
@@ -500,15 +416,15 @@ td {
     font-size: 0.85em;
   }
   
-  .input-field {
+  .fr-input {
     font-size: 0.85em;
-    padding: 6px;
+    padding: 0.375rem;
   }
   
   .col-number,
   .col-arrow,
   .col-checkbox {
-    width: 40px;
+    width: 2.5rem;
   }
 }
 </style>
