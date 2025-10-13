@@ -96,15 +96,6 @@ async function fetchApiData() {
     emit('update:isLoading', false);
   }
 }
-
-/**
- * Continue to next step with the fetched data
- */
-function continueToNextStep() {
-  if (previewData.value && previewData.value.length > 0) {
-    emit('complete', previewData.value, localUrl.value);
-  }
-}
 </script>
 
 <template>
@@ -228,17 +219,6 @@ function continueToNextStep() {
               </table>
             </div>
           </div>
-        </div>
-
-        <!-- Continue button -->
-        <div class="fr-mt-4w">
-          <DsfrButton
-            label="Continuer vers le mapping"
-            icon="ri-arrow-right-line"
-            icon-right
-            @click="continueToNextStep"
-            size="lg"
-          />
         </div>
       </div>
     </div>

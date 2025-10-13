@@ -20,9 +20,7 @@ interface Props {
 
 interface Emits {
   (e: 'update:isLoading', value: boolean): void;
-  (e: 'back'): void;
   (e: 'status', message: string, type: 'success' | 'error' | 'info'): void;
-  (e: 'restart'): void;
 }
 
 const props = defineProps<Props>();
@@ -290,31 +288,6 @@ async function syncToGrist() {
           content="Vous pouvez consulter vos données dans votre document Grist, effectuer une nouvelle synchronisation, ou revenir au début pour synchroniser d'autres données."
         />
       </div>
-
-      <!-- Actions -->
-      <div class="step-actions fr-mt-4w">
-        <DsfrButton
-          label="Retour"
-          secondary
-          icon="ri-arrow-left-line"
-          @click="emit('back')"
-          :disabled="isLoading"
-        />
-        <div class="spacer"></div>
-        <DsfrButton
-          v-if="syncCompleted"
-          label="Nouvelle synchronisation"
-          icon="ri-restart-line"
-          @click="emit('restart')"
-        />
-        <DsfrButton
-          v-if="syncCompleted && syncSuccess"
-          label="Relancer"
-          icon="ri-refresh-line"
-          @click="syncToGrist"
-          :loading="isLoading"
-        />
-      </div>
     </div>
   </div>
 </template>
@@ -416,19 +389,6 @@ async function syncToGrist() {
   color: #f44336;
 }
 
-.step-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e5e5;
-}
-
-.spacer {
-  flex: 1;
-}
-
 code {
   background: #f5f5f5;
   padding: 0.2rem 0.4rem;
@@ -451,10 +411,6 @@ code {
 }
 
 @media (max-width: 768px) {
-  .step-actions {
-    flex-wrap: wrap;
-  }
-  
   .summary-item {
     flex-direction: column;
     align-items: flex-start;

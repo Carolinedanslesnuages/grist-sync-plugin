@@ -16,8 +16,6 @@ interface Props {
 
 interface Emits {
   (e: 'update:mappings', value: FieldMapping[]): void;
-  (e: 'complete', mappings: FieldMapping[]): void;
-  (e: 'back'): void;
 }
 
 const props = defineProps<Props>();
@@ -28,13 +26,6 @@ const validMappingsCount = computed(() => getValidMappings(props.mappings).lengt
 
 function handleMappingUpdate(newMappings: FieldMapping[]) {
   emit('update:mappings', newMappings);
-}
-
-function validateAndContinue() {
-  if (validMappingsCount.value === 0) {
-    return;
-  }
-  emit('complete', props.mappings);
 }
 </script>
 
@@ -120,23 +111,6 @@ function validateAndContinue() {
           content="Définissez au moins un mapping pour continuer. Pour les champs imbriqués, utilisez la notation pointée (ex: user.profile.name)."
         />
       </div>
-
-      <!-- Actions -->
-      <div class="step-actions fr-mt-4w">
-        <DsfrButton
-          label="Retour"
-          secondary
-          icon="ri-arrow-left-line"
-          @click="emit('back')"
-        />
-        <DsfrButton
-          label="Continuer"
-          icon="ri-arrow-right-line"
-          icon-right
-          :disabled="validMappingsCount === 0"
-          @click="validateAndContinue"
-        />
-      </div>
     </div>
   </div>
 </template>
@@ -189,19 +163,7 @@ function validateAndContinue() {
   word-break: break-word;
 }
 
-.step-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e5e5;
-}
-
 @media (max-width: 768px) {
-  .step-actions {
-    flex-direction: column;
-  }
-  
   .data-preview {
     font-size: 0.85em;
   }
