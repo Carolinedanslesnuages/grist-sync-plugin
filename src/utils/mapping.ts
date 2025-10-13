@@ -23,6 +23,57 @@ export interface FieldMapping {
 }
 
 /**
+ * Sérialise une valeur pour l'insertion dans Grist
+ * 
+ * - Arrays: sérialise avec le séparateur ";"
+ * - Objects: sérialise en JSON
+ * - Dates: convertit en string ISO
+ * - Booleans: retourne tel quel
+ * - Autres: retourne tel quel
+ * 
+ * @param value - La valeur à sérialiser
+ * @returns La valeur sérialisée pour Grist
+ * 
+ * @example
+ * serializeValue(['a', 'b', 'c']) // "a;b;c"
+ * serializeValue({ x: 1, y: 2 }) // '{"x":1,"y":2}'
+ * serializeValue(new Date('2024-01-15')) // "2024-01-15T00:00:00.000Z"
+ */
+export function serializeValue(value: any): any {
+  // Gère null et undefined
+  if (value === null || value === undefined) {
+    return value;
+  }
+  
+  // Convertit les dates en string ISO
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  
+  // Sérialise les tableaux avec le séparateur ";"
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '';
+    }
+    // Pour chaque élément, sérialise récursivement si c'est un objet, sinon convertit en string
+    return value.map(item => {
+      if (item !== null && typeof item === 'object' && !(item instanceof Date)) {
+        return JSON.stringify(item);
+      }
+      return String(item);
+    }).join(';');
+  }
+  
+  // Sérialise les objets en JSON (mais pas les dates qui sont déjà gérées)
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+  
+  // Retourne les primitives (string, number, boolean) telles quelles
+  return value;
+}
+
+/**
  * Extrait une valeur d'un objet en utilisant un chemin (supporte la notation pointée)
  * 
  * @param obj - L'objet source
@@ -75,9 +126,12 @@ export function transformRecord(apiRecord: any, mappings: FieldMapping[]): Recor
     
     let value = getNestedValue(apiRecord, mapping.apiField);
     
-    // Applique la transformation si définie
+    // Applique la transformation personnalisée si définie
     if (mapping.transform && typeof mapping.transform === 'function') {
       value = mapping.transform(value);
+    } else {
+      // Sinon, applique la sérialisation automatique pour Grist
+      value = serializeValue(value);
     }
     
     gristRecord[mapping.gristColumn] = value;
