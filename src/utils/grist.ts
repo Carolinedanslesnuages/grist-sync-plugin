@@ -25,6 +25,39 @@ export interface GristAddRecordsResponse {
 }
 
 /**
+ * Interface pour les informations d'une colonne Grist
+ */
+export interface GristColumn {
+  id: string;
+  fields: {
+    label?: string;
+    type?: string;
+    colId: string;
+  };
+}
+
+/**
+ * Interface pour la réponse de récupération des colonnes
+ */
+export interface GristColumnsResponse {
+  columns: GristColumn[];
+}
+
+/**
+ * Interface pour la requête d'ajout de colonnes
+ */
+export interface GristAddColumnsRequest {
+  columns: Array<{
+    id: string;
+    fields: {
+      label?: string;
+      type: string;
+      colId: string;
+    };
+  }>;
+}
+
+/**
  * Interface pour les informations extraites d'une URL Grist
  */
 export interface ParsedGristUrl {
@@ -84,9 +117,20 @@ export function isValidGristUrl(url: string): boolean {
  */
 export class GristClient {
   private config: GristConfig;
+  private onLog?: (message: string, type: 'info' | 'success' | 'error') => void;
   
-  constructor(config: GristConfig) {
+  constructor(config: GristConfig, onLog?: (message: string, type: 'info' | 'success' | 'error') => void) {
     this.config = config;
+    this.onLog = onLog;
+  }
+  
+  /**
+   * Log un message si un callback est fourni
+   */
+  private log(message: string, type: 'info' | 'success' | 'error' = 'info') {
+    if (this.onLog) {
+      this.onLog(message, type);
+    }
   }
   
   /**
@@ -134,6 +178,11 @@ export class GristClient {
   async addRecords(records: Record<string, any>[]): Promise<GristAddRecordsResponse> {
     if (!records || records.length === 0) {
       throw new Error('Aucun enregistrement à ajouter');
+    }
+    
+    // Si l'option autoCreateColumns est activée, créer les colonnes manquantes
+    if (this.config.autoCreateColumns !== false) {
+      await this.ensureColumnsExist(records);
     }
     
     const url = this.buildApiUrl('/records');
@@ -194,6 +243,182 @@ export class GristClient {
       }
       throw error;
     }
+  }
+  
+  /**
+   * Récupère les colonnes existantes de la table Grist
+   * 
+   * @returns Promesse résolue avec la liste des colonnes
+   * @throws Error si la requête échoue
+   */
+  async getColumns(): Promise<GristColumn[]> {
+    const baseUrl = this.config.gristApiUrl || 'https://docs.getgrist.com';
+    const url = `${baseUrl}/api/docs/${this.config.docId}/tables/${this.config.tableId}/columns`;
+    
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.buildHeaders()
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur Grist (${response.status}): ${errorText}`);
+      }
+      
+      const data: GristColumnsResponse = await response.json();
+      return data.columns || [];
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Échec de la récupération des colonnes: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+  
+  /**
+   * Crée de nouvelles colonnes dans la table Grist
+   * 
+   * @param columns - Liste des colonnes à créer
+   * @returns Promesse résolue avec la réponse de Grist
+   * @throws Error si la requête échoue
+   */
+  async addColumns(columns: Array<{ id: string; label?: string; type?: string }>): Promise<any> {
+    if (!columns || columns.length === 0) {
+      return { columns: [] };
+    }
+    
+    const baseUrl = this.config.gristApiUrl || 'https://docs.getgrist.com';
+    const url = `${baseUrl}/api/docs/${this.config.docId}/tables/${this.config.tableId}/columns`;
+    
+    const body: GristAddColumnsRequest = {
+      columns: columns.map(col => ({
+        id: col.id,
+        fields: {
+          colId: col.id,
+          label: col.label || col.id,
+          type: col.type || 'Text'
+        }
+      }))
+    };
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify(body)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur Grist (${response.status}): ${errorText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Échec de la création des colonnes: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+  
+  /**
+   * Vérifie et crée les colonnes manquantes avant l'insertion
+   * 
+   * @param records - Enregistrements à insérer
+   */
+  async ensureColumnsExist(records: Record<string, any>[]): Promise<void> {
+    if (!records || records.length === 0) {
+      return;
+    }
+    
+    try {
+      // Récupère les colonnes existantes
+      this.log('🔍 Vérification des colonnes existantes...', 'info');
+      const existingColumns = await this.getColumns();
+      const existingColumnIds = new Set(
+        existingColumns.map(col => col.fields.colId)
+      );
+      
+      this.log(`✓ ${existingColumns.length} colonne(s) existante(s) détectée(s)`, 'success');
+      
+      // Extrait toutes les colonnes nécessaires depuis les enregistrements
+      const requiredColumns = new Set<string>();
+      for (const record of records) {
+        for (const key of Object.keys(record)) {
+          requiredColumns.add(key);
+        }
+      }
+      
+      // Détermine les colonnes manquantes
+      const missingColumns = Array.from(requiredColumns).filter(
+        col => !existingColumnIds.has(col)
+      );
+      
+      // Crée les colonnes manquantes si nécessaire
+      if (missingColumns.length > 0) {
+        this.log(`➕ Création de ${missingColumns.length} colonne(s) manquante(s): ${missingColumns.join(', ')}`, 'info');
+        
+        const columnsToCreate = missingColumns.map(id => ({
+          id,
+          label: id,
+          type: this.inferColumnType(records, id)
+        }));
+        
+        await this.addColumns(columnsToCreate);
+        this.log(`✅ Colonnes créées avec succès!`, 'success');
+      } else {
+        this.log('✓ Toutes les colonnes nécessaires existent déjà', 'success');
+      }
+    } catch (error) {
+      // En cas d'erreur, on log mais on ne bloque pas l'insertion
+      // (les colonnes peuvent déjà exister ou l'utilisateur n'a peut-être pas les permissions)
+      if (error instanceof Error) {
+        this.log(`⚠️ Avertissement lors de la création automatique des colonnes: ${error.message}`, 'error');
+        console.warn(`Avertissement lors de la création automatique des colonnes: ${error.message}`);
+      }
+    }
+  }
+  
+  /**
+   * Infère le type de colonne approprié basé sur les données
+   * 
+   * @param records - Enregistrements à analyser
+   * @param columnName - Nom de la colonne
+   * @returns Le type de colonne Grist approprié
+   */
+  private inferColumnType(records: Record<string, any>[], columnName: string): string {
+    // Examine les premières valeurs pour déterminer le type
+    for (const record of records.slice(0, 10)) {
+      const value = record[columnName];
+      
+      if (value === null || value === undefined) {
+        continue;
+      }
+      
+      if (typeof value === 'number') {
+        return Number.isInteger(value) ? 'Int' : 'Numeric';
+      }
+      
+      if (typeof value === 'boolean') {
+        return 'Bool';
+      }
+      
+      // Essaie de détecter les dates
+      if (typeof value === 'string') {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+        if (dateRegex.test(value)) {
+          return 'DateTime';
+        }
+      }
+      
+      // Par défaut, utilise Text
+      return 'Text';
+    }
+    
+    // Si aucune valeur n'est trouvée, utilise Text par défaut
+    return 'Text';
   }
   
   /**

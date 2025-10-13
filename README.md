@@ -9,6 +9,8 @@ Un plugin simple et intuitif pour synchroniser des données depuis n'importe que
 - **Support API universelle** : Fonctionne avec n'importe quelle API REST JSON
 - **Authentification flexible** : Support des tokens Bearer pour les APIs sécurisées
 - **Aperçu en temps réel** : Visualisez les données avant la synchronisation
+- **Création automatique des colonnes** : Les colonnes manquantes sont créées automatiquement dans Grist
+- **Logs en temps réel** : Suivez la progression de la synchronisation étape par étape
 - **TypeScript** : Code entièrement typé pour plus de robustesse
 
 ## 🚀 Démarrage rapide
@@ -96,6 +98,9 @@ Une fois les données récupérées, vous verrez une table de mapping (style Exc
 1. Vérifiez que vos mappings sont corrects
 2. Cliquez sur **"🚀 Synchroniser vers Grist"**
 3. Les données seront insérées dans votre table Grist
+4. **Nouveau** : Les colonnes manquantes seront créées automatiquement dans Grist!
+
+**Note** : Le plugin détecte intelligemment les colonnes manquantes et les crée avec le type approprié (texte, nombre, booléen, date/heure) avant l'insertion des données.
 
 ## ⚙️ Configuration avancée
 
@@ -108,7 +113,29 @@ export const defaultConfig: GristConfig = {
   docId: 'votre-doc-id',          // Votre ID de document
   tableId: 'VotreTable',           // Votre table par défaut
   apiTokenGrist: 'votre-token',    // Optionnel
-  gristApiUrl: 'https://docs.getgrist.com'
+  gristApiUrl: 'https://docs.getgrist.com',
+  autoCreateColumns: true          // Création automatique des colonnes (recommandé)
+};
+```
+
+### Création automatique des colonnes
+
+Par défaut, le plugin crée automatiquement les colonnes manquantes dans votre table Grist. Cette fonctionnalité :
+
+- **Détecte les colonnes manquantes** : Compare les champs de vos données avec les colonnes existantes
+- **Infère les types de données** : Analyse vos données pour déterminer le type approprié :
+  - `Text` : Chaînes de caractères
+  - `Numeric` : Nombres décimaux
+  - `Int` : Nombres entiers
+  - `Bool` : Booléens (true/false)
+  - `DateTime` : Dates au format ISO 8601
+- **Logs en temps réel** : Affiche les colonnes créées dans le journal de synchronisation
+
+**Pour désactiver cette fonctionnalité** :
+```typescript
+const gristConfig = {
+  // ... autres options
+  autoCreateColumns: false
 };
 ```
 
@@ -156,6 +183,102 @@ const mappings = [
 ```
 
 **Note** : Les transformations personnalisées ont la priorité sur la sérialisation automatique.
+
+## 🔄 Détails de la synchronisation vers Grist
+
+### Processus de synchronisation
+
+Lors de la synchronisation, le plugin exécute les étapes suivantes :
+
+1. **Transformation des données** : Application des mappings définis
+2. **Détection des colonnes** : Analyse des colonnes nécessaires
+3. **Vérification des colonnes existantes** : Appel GET à l'API Grist pour lister les colonnes
+4. **Création des colonnes manquantes** : Si activé, création automatique via POST
+5. **Insertion des données** : Appel POST à `/api/docs/{docId}/tables/{tableName}/records`
+
+### API Grist utilisée
+
+Le plugin utilise l'API REST officielle de Grist :
+
+**Endpoint d'insertion** :
+```
+POST /api/docs/{docId}/tables/{tableName}/records
+```
+
+**Headers** :
+```
+Content-Type: application/json
+Authorization: Bearer {apiToken}
+```
+
+**Payload** :
+```json
+{
+  "records": [
+    {
+      "fields": {
+        "Name": "Alice",
+        "Email": "alice@example.com",
+        "Age": 30
+      }
+    },
+    {
+      "fields": {
+        "Name": "Bob",
+        "Email": "bob@example.com",
+        "Age": 25
+      }
+    }
+  ]
+}
+```
+
+**Réponse** :
+```json
+{
+  "records": [
+    { "id": 1 },
+    { "id": 2 }
+  ]
+}
+```
+
+### Gestion des erreurs
+
+Le plugin gère intelligemment les erreurs :
+
+- **401 Unauthorized** : Token API manquant ou invalide
+- **403 Forbidden** : Permissions insuffisantes
+- **404 Not Found** : Document ou table inexistant
+- **422 Unprocessable Entity** : Erreur de validation des données
+- **500 Internal Server Error** : Erreur serveur Grist
+
+Toutes les erreurs sont affichées dans le journal de synchronisation avec des messages explicites.
+
+### Logs en temps réel
+
+Le journal de synchronisation affiche :
+- ✅ Actions réussies (en vert)
+- 📊 Informations (en gris)
+- ❌ Erreurs (en rouge)
+- ⚠️ Avertissements (en orange)
+
+Exemple de log :
+```
+20:30:15  🚀 Démarrage de la synchronisation...
+20:30:15  📊 10 enregistrement(s) à synchroniser
+20:30:15  🔗 3 mapping(s) configuré(s)
+20:30:15  🔄 Transformation des données...
+20:30:16  ✓ 10 enregistrement(s) transformé(s)
+20:30:16  📋 3 colonne(s) détectée(s): Name, Email, Age
+20:30:16  📤 Envoi vers Grist...
+20:30:16  🔧 Vérification et création automatique des colonnes manquantes...
+20:30:17  🔍 Vérification des colonnes existantes...
+20:30:17  ✓ 1 colonne(s) existante(s) détectée(s)
+20:30:17  ➕ Création de 2 colonne(s) manquante(s): Email, Age
+20:30:18  ✅ Colonnes créées avec succès!
+20:30:19  ✅ 10 enregistrement(s) synchronisé(s) avec succès!
+```
 
 ## 🗂️ Structure du projet
 
@@ -281,6 +404,14 @@ Le plugin détecte automatiquement les formats courants :
 - Vérifiez que les noms de colonnes Grist correspondent exactement (sensible à la casse)
 - Assurez-vous que les types de données sont compatibles (texte, nombre, etc.)
 - Vérifiez les chemins des champs API (utilisez la notation pointée pour les objets imbriqués)
+- **Nouveau** : Activez la création automatique des colonnes (`autoCreateColumns: true`) pour éviter les erreurs de colonnes manquantes
+
+### Erreur : "Colonne inexistante"
+
+**Solutions** :
+- La création automatique des colonnes est activée par défaut
+- Si désactivée, créez manuellement les colonnes dans Grist avant la synchronisation
+- Vérifiez que vous avez les permissions nécessaires pour créer des colonnes
 
 ## 🤝 Contribution
 
