@@ -112,17 +112,40 @@ export const defaultConfig: GristConfig = {
 };
 ```
 
-### Transformation des données
+### Sérialisation automatique des données
 
-Pour des transformations personnalisées, modifiez `src/utils/mapping.ts` :
+Le plugin applique automatiquement les transformations suivantes pour l'insertion dans Grist :
+
+- **Tableaux** : sérialisés avec le séparateur `";"` 
+  - Exemple : `['a', 'b', 'c']` → `"a;b;c"`
+  - Tableaux d'objets : `[{id: 1}, {id: 2}]` → `'{"id":1};{"id":2}'`
+
+- **Objets** : convertis en JSON
+  - Exemple : `{name: "Alice", age: 30}` → `'{"name":"Alice","age":30}'`
+
+- **Dates** : converties en format ISO 8601
+  - Exemple : `new Date('2024-01-15')` → `"2024-01-15T00:00:00.000Z"`
+
+- **Booléens** : préservés tels quels (`true`/`false`)
+
+- **Primitives** : strings, numbers → inchangés
+
+### Transformation des données personnalisées
+
+Pour des transformations personnalisées, utilisez la fonction `transform` dans vos mappings :
 
 ```typescript
-// Exemple de transformation
+// Exemple de transformation personnalisée
 const mappings = [
   {
     gristColumn: 'FullName',
     apiField: 'name',
     transform: (value) => value.toUpperCase() // Mettre en majuscules
+  },
+  {
+    gristColumn: 'Tags',
+    apiField: 'tags',
+    transform: (value) => value.join(', ') // Séparateur personnalisé
   },
   {
     gristColumn: 'Price',
@@ -131,6 +154,8 @@ const mappings = [
   }
 ];
 ```
+
+**Note** : Les transformations personnalisées ont la priorité sur la sérialisation automatique.
 
 ## 🗂️ Structure du projet
 
@@ -186,7 +211,33 @@ grist-sync-plugin/
 - `LastName` ← `user.profile.lastName`
 - `Email` ← `user.contact.email`
 
-### Exemple 3 : API paginée
+### Exemple 3 : API avec tableaux et objets complexes
+
+**Données API** :
+```json
+{
+  "id": 123,
+  "product": "Laptop",
+  "tags": ["electronics", "computers", "portable"],
+  "specs": {
+    "cpu": "Intel i7",
+    "ram": "16GB",
+    "storage": "512GB SSD"
+  },
+  "inStock": true,
+  "lastUpdated": "2024-01-15T10:30:00Z"
+}
+```
+
+**Mapping** :
+- `ID` ← `id`
+- `Product` ← `product`
+- `Tags` ← `tags` → Résultat dans Grist : `"electronics;computers;portable"`
+- `Specs` ← `specs` → Résultat dans Grist : `'{"cpu":"Intel i7","ram":"16GB","storage":"512GB SSD"}'`
+- `InStock` ← `inStock` → Résultat dans Grist : `true`
+- `LastUpdated` ← `lastUpdated` → Résultat dans Grist : `"2024-01-15T10:30:00.000Z"`
+
+### Exemple 4 : API paginée
 
 Si votre API retourne des données paginées, assurez-vous d'utiliser l'URL complète avec les paramètres :
 
