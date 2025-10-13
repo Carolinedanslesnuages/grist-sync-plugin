@@ -306,12 +306,14 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
                 <li v-for="(solution, idx) in lastError.solutions" :key="idx">{{ solution }}</li>
               </ul>
               
-              <details v-if="lastError.technicalDetails" class="fr-mt-2w">
-                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
-                  🔧 Détails techniques
-                </summary>
-                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
-              </details>
+              <DsfrAccordion
+                v-if="lastError.technicalDetails"
+                title="🔧 Détails techniques"
+                :id="`technical-details-api-${Date.now()}`"
+                class="fr-mt-2w"
+              >
+                <pre class="fr-text--xs fr-mt-1w fr-code" style="overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
+              </DsfrAccordion>
             </div>
           </template>
         </DsfrAlert>

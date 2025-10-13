@@ -182,11 +182,11 @@ async function syncToGrist() {
           </div>
           <div class="summary-item">
             <span class="summary-label">Document Grist:</span>
-            <code>{{ gristConfig.docId }}</code>
+            <code class="fr-code">{{ gristConfig.docId }}</code>
           </div>
           <div class="summary-item">
             <span class="summary-label">Table Grist:</span>
-            <code>{{ gristConfig.tableId }}</code>
+            <code class="fr-code">{{ gristConfig.tableId }}</code>
           </div>
         </div>
       </div>
@@ -270,12 +270,14 @@ async function syncToGrist() {
                 <li v-for="(solution, idx) in lastSyncError.solutions" :key="idx">{{ solution }}</li>
               </ul>
               
-              <details v-if="lastSyncError.technicalDetails" class="fr-mt-2w">
-                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
-                  🔧 Détails techniques
-                </summary>
-                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastSyncError.technicalDetails }}</pre>
-              </details>
+              <DsfrAccordion
+                v-if="lastSyncError.technicalDetails"
+                title="🔧 Détails techniques"
+                :id="`technical-details-sync-${Date.now()}`"
+                class="fr-mt-2w"
+              >
+                <pre class="fr-text--xs fr-mt-1w fr-code" style="overflow-x: auto;">{{ lastSyncError.technicalDetails }}</pre>
+              </DsfrAccordion>
             </div>
           </template>
         </DsfrAlert>
@@ -387,27 +389,6 @@ async function syncToGrist() {
 .log-error {
   background: rgba(244, 67, 54, 0.1);
   color: #f44336;
-}
-
-code {
-  background: #f5f5f5;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.9em;
-}
-
-.error-details {
-  margin-top: 1rem;
-}
-
-.error-details ul {
-  margin: 0.5rem 0;
-  padding-left: 1.5rem;
-}
-
-.error-details ul li {
-  margin: 0.25rem 0;
 }
 
 @media (max-width: 768px) {

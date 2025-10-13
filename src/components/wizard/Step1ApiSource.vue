@@ -143,16 +143,16 @@ async function fetchApiData() {
 
       <!-- Exemple d'URLs -->
       <div class="fr-mt-4w">
-        <details class="fr-accordion">
-          <summary class="fr-accordion__btn">Exemples d'URLs</summary>
-          <div class="fr-accordion__body">
-            <ul class="fr-text--sm">
-              <li><code>https://jsonplaceholder.typicode.com/users</code> - API publique de test</li>
-              <li><code>https://api.example.com/data?format=json</code> - API avec paramètres</li>
-              <li><code>https://backend.mycompany.com/export/customers</code> - Backend interne</li>
-            </ul>
-          </div>
-        </details>
+        <DsfrAccordion
+          title="Exemples d'URLs"
+          id="examples-accordion"
+        >
+          <ul class="fr-text--sm">
+            <li><code class="fr-code">https://jsonplaceholder.typicode.com/users</code> - API publique de test</li>
+            <li><code class="fr-code">https://api.example.com/data?format=json</code> - API avec paramètres</li>
+            <li><code class="fr-code">https://backend.mycompany.com/export/customers</code> - Backend interne</li>
+          </ul>
+        </DsfrAccordion>
       </div>
 
       <!-- Detailed Error Display -->
@@ -172,12 +172,14 @@ async function fetchApiData() {
                 <li v-for="(solution, idx) in lastError.solutions" :key="idx">{{ solution }}</li>
               </ul>
               
-              <details v-if="lastError.technicalDetails" class="fr-mt-2w">
-                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
-                  🔧 Détails techniques
-                </summary>
-                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
-              </details>
+              <DsfrAccordion
+                v-if="lastError.technicalDetails"
+                title="🔧 Détails techniques"
+                :id="`technical-details-${Date.now()}`"
+                class="fr-mt-2w"
+              >
+                <pre class="fr-text--xs fr-mt-1w fr-code" style="overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
+              </DsfrAccordion>
             </div>
           </template>
         </DsfrAlert>
@@ -254,30 +256,6 @@ async function fetchApiData() {
 
 .step-content {
   max-width: 800px;
-}
-
-details.fr-accordion {
-  border: 1px solid #e5e5e5;
-  border-radius: 4px;
-  padding: 1rem;
-}
-
-.fr-accordion__btn {
-  cursor: pointer;
-  font-weight: bold;
-  color: #000091;
-}
-
-.fr-accordion__body {
-  margin-top: 1rem;
-}
-
-code {
-  background: #f5f5f5;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.9em;
 }
 
 .error-details {
