@@ -63,6 +63,21 @@ Tous les champs de formulaire utilisent les composants DSFR :
 - **DsfrNotice**: Notices informatives
 - **DsfrCallout**: Conseils et astuces mis en évidence
 
+### Accordéons (DsfrAccordion)
+Les accordéons permettent d'afficher/masquer du contenu de manière interactive :
+- **DsfrAccordion**: Affichage/masquage de contenu (ex: exemples d'URLs, détails techniques)
+
+```vue
+<DsfrAccordion
+  title="Exemples d'URLs"
+  id="examples-accordion"
+>
+  <ul class="fr-text--sm">
+    <li><code class="fr-code">https://api.example.com/data</code> - Exemple</li>
+  </ul>
+</DsfrAccordion>
+```
+
 ### Badges et Indicateurs
 - **DsfrBadge**: Compteurs et statuts (ex: "5 / 10 activé(s)")
 
@@ -71,6 +86,18 @@ Les tables utilisent les classes DSFR natives :
 - `.fr-table`: Container de table
 - `.fr-table--bordered`: Bordures sur les cellules
 - `.fr-table--responsive`: Support responsive
+
+### Code et Blocs de Code
+Les extraits de code utilisent la classe DSFR native :
+- `.fr-code`: Classe pour les éléments `<code>` inline ou en bloc
+
+```vue
+<!-- Code inline -->
+<code class="fr-code">https://api.example.com/data</code>
+
+<!-- Bloc de code -->
+<pre class="fr-code">{{ technicalDetails }}</pre>
+```
 
 ## Design Tokens DSFR
 

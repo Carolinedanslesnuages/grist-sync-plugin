@@ -23,6 +23,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const localUrl = ref(props.backendUrl);
+const authToken = ref('');
 const previewData = ref<any[] | null>(null);
 const sampleRecord = ref<Record<string, any> | null>(null);
 const lastError = ref<ErrorInfo | null>(null);
@@ -47,6 +48,9 @@ async function fetchApiData() {
     const headers: HeadersInit = {
       'Content-Type': 'application/json'
     };
+    if (authToken.value) {
+      headers['Authorization'] = `Bearer ${authToken.value}`;
+    }
     
     const response = await fetch(localUrl.value, {
       method: 'GET',
@@ -77,6 +81,11 @@ async function fetchApiData() {
       // Store data locally for preview
       previewData.value = apiData;
       sampleRecord.value = apiData[0];
+
+      // Notify parent that step 1 is complete and provide the fetched data + URL
+      emit('complete', apiData, localUrl.value);
+
+      // Also update the bound backendUrl and emit status as before
       emit('update:backendUrl', localUrl.value);
       emit('status', `✅ ${apiData.length} enregistrement(s) récupéré(s) avec succès`, 'success');
     } else {
@@ -123,6 +132,17 @@ async function fetchApiData() {
         />
       </DsfrInputGroup>
 
+      <DsfrInputGroup class="fr-mt-2w">
+        <DsfrInput
+          label="Token d'authentification (facultatif)"
+          v-model="authToken"
+          type="text"
+          placeholder="Entrez votre token si nécessaire"
+          hint="Ce token sera ajouté aux requêtes API si fourni."
+          @keyup.enter="fetchApiData"
+        />
+      </DsfrInputGroup>
+
       <div class="fr-mt-4w">
         <DsfrButton
           label="Récupérer les données"
@@ -143,16 +163,16 @@ async function fetchApiData() {
 
       <!-- Exemple d'URLs -->
       <div class="fr-mt-4w">
-        <details class="fr-accordion">
-          <summary class="fr-accordion__btn">Exemples d'URLs</summary>
-          <div class="fr-accordion__body">
-            <ul class="fr-text--sm">
-              <li><code>https://jsonplaceholder.typicode.com/users</code> - API publique de test</li>
-              <li><code>https://api.example.com/data?format=json</code> - API avec paramètres</li>
-              <li><code>https://backend.mycompany.com/export/customers</code> - Backend interne</li>
-            </ul>
-          </div>
-        </details>
+        <DsfrAccordion
+          title="Exemples d'URLs"
+          id="examples-accordion"
+        >
+          <ul class="fr-text--sm">
+            <li><code class="fr-code">https://jsonplaceholder.typicode.com/users</code> - API publique de test</li>
+            <li><code class="fr-code">https://api.example.com/data?format=json</code> - API avec paramètres</li>
+            <li><code class="fr-code">https://backend.mycompany.com/export/customers</code> - Backend interne</li>
+          </ul>
+        </DsfrAccordion>
       </div>
 
       <!-- Detailed Error Display -->
@@ -172,12 +192,14 @@ async function fetchApiData() {
                 <li v-for="(solution, idx) in lastError.solutions" :key="idx">{{ solution }}</li>
               </ul>
               
-              <details v-if="lastError.technicalDetails" class="fr-mt-2w">
-                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
-                  🔧 Détails techniques
-                </summary>
-                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
-              </details>
+              <DsfrAccordion
+                v-if="lastError.technicalDetails"
+                title="🔧 Détails techniques"
+                :id="`technical-details-${Date.now()}`"
+                class="fr-mt-2w"
+              >
+                <pre class="fr-text--xs fr-mt-1w fr-code" style="overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
+              </DsfrAccordion>
             </div>
           </template>
         </DsfrAlert>
@@ -254,30 +276,6 @@ async function fetchApiData() {
 
 .step-content {
   max-width: 800px;
-}
-
-details.fr-accordion {
-  border: 1px solid #e5e5e5;
-  border-radius: 4px;
-  padding: 1rem;
-}
-
-.fr-accordion__btn {
-  cursor: pointer;
-  font-weight: bold;
-  color: #000091;
-}
-
-.fr-accordion__body {
-  margin-top: 1rem;
-}
-
-code {
-  background: #f5f5f5;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.9em;
 }
 
 .error-details {
