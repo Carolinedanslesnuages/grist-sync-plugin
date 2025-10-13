@@ -15,6 +15,9 @@ export interface FieldMapping {
   /** Chemin du champ dans les données API (ex: "user.name" ou "email") */
   apiField: string;
   
+  /** Indique si ce mapping est activé (sélectionné) */
+  enabled?: boolean;
+  
   /** Fonction de transformation optionnelle pour modifier la valeur */
   transform?: (value: any) => any;
 }
@@ -66,6 +69,9 @@ export function transformRecord(apiRecord: any, mappings: FieldMapping[]): Recor
   
   for (const mapping of mappings) {
     if (!mapping.gristColumn || !mapping.apiField) continue;
+    
+    // Ignorer les mappings désactivés
+    if (mapping.enabled === false) continue;
     
     let value = getNestedValue(apiRecord, mapping.apiField);
     
@@ -125,4 +131,74 @@ export function isValidMapping(mapping: FieldMapping): boolean {
  */
 export function getValidMappings(mappings: FieldMapping[]): FieldMapping[] {
   return mappings.filter(isValidMapping);
+}
+
+/**
+ * Extrait toutes les clés d'un objet de manière récursive (y compris imbriquées)
+ * 
+ * @param obj - L'objet à analyser
+ * @param prefix - Préfixe pour les clés imbriquées (utilisation interne)
+ * @param maxDepth - Profondeur maximale de récursion (par défaut: 5)
+ * @returns Liste de tous les chemins de clés trouvés
+ * 
+ * @example
+ * extractAllKeys({ user: { name: "Alice", profile: { age: 30 } }, email: "alice@example.com" })
+ * // Retourne: ["user", "user.name", "user.profile", "user.profile.age", "email"]
+ */
+export function extractAllKeys(obj: any, prefix = '', maxDepth = 5): string[] {
+  if (!obj || typeof obj !== 'object' || maxDepth <= 0) {
+    return [];
+  }
+  
+  const keys: string[] = [];
+  
+  for (const key in obj) {
+    if (!obj.hasOwnProperty(key)) continue;
+    
+    const path = prefix ? `${prefix}.${key}` : key;
+    keys.push(path);
+    
+    // Récursion pour les objets imbriqués (pas les tableaux)
+    if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+      keys.push(...extractAllKeys(obj[key], path, maxDepth - 1));
+    }
+  }
+  
+  return keys;
+}
+
+/**
+ * Génère automatiquement des mappings à partir d'un objet API
+ * 
+ * @param sampleData - Exemple de données API
+ * @param defaultEnabled - Si les mappings doivent être activés par défaut
+ * @returns Liste de mappings générés automatiquement
+ * 
+ * @example
+ * generateMappingsFromApiData({ id: 1, name: "Alice", user: { email: "alice@example.com" } })
+ * // Retourne: [
+ * //   { apiField: "id", gristColumn: "id", enabled: true },
+ * //   { apiField: "name", gristColumn: "name", enabled: true },
+ * //   { apiField: "user", gristColumn: "user", enabled: true },
+ * //   { apiField: "user.email", gristColumn: "user_email", enabled: true }
+ * // ]
+ */
+export function generateMappingsFromApiData(sampleData: any, defaultEnabled = true): FieldMapping[] {
+  if (!sampleData || typeof sampleData !== 'object') {
+    return [];
+  }
+  
+  const apiFields = extractAllKeys(sampleData);
+  
+  return apiFields.map(apiField => {
+    // Convertir le chemin API en nom de colonne Grist
+    // Ex: "user.profile.name" -> "user_profile_name"
+    const gristColumn = apiField.replace(/\./g, '_');
+    
+    return {
+      apiField,
+      gristColumn,
+      enabled: defaultEnabled
+    };
+  });
 }

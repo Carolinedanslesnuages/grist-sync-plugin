@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { FieldMapping } from '../utils/mapping';
+import { extractAllKeys, generateMappingsFromApiData } from '../utils/mapping';
 
 /**
  * Composant MappingTable - Table de mapping visuel façon Excel
@@ -32,7 +33,7 @@ const mappings = computed({
  * Ajoute une nouvelle ligne de mapping vide
  */
 function addMapping() {
-  const newMappings = [...mappings.value, { gristColumn: '', apiField: '' }];
+  const newMappings = [...mappings.value, { gristColumn: '', apiField: '', enabled: true }];
   emit('update:modelValue', newMappings);
 }
 
@@ -47,16 +48,42 @@ function removeMapping(index: number) {
 /**
  * Met à jour un mapping spécifique
  */
-function updateMapping(index: number, field: 'gristColumn' | 'apiField', value: string) {
+function updateMapping(index: number, field: 'gristColumn' | 'apiField' | 'enabled', value: string | boolean) {
   const newMappings = [...mappings.value];
   const currentMapping = newMappings[index];
   
   if (!currentMapping) return;
   
   newMappings[index] = {
-    gristColumn: field === 'gristColumn' ? value : currentMapping.gristColumn,
-    apiField: field === 'apiField' ? value : currentMapping.apiField,
+    ...currentMapping,
+    [field]: value
   };
+  emit('update:modelValue', newMappings);
+}
+
+/**
+ * Génère automatiquement les mappings à partir des données d'exemple
+ */
+function autoGenerateMappings() {
+  if (!props.sampleData) return;
+  
+  const generatedMappings = generateMappingsFromApiData(props.sampleData);
+  emit('update:modelValue', generatedMappings);
+}
+
+/**
+ * Sélectionne tous les mappings
+ */
+function selectAll() {
+  const newMappings = mappings.value.map(m => ({ ...m, enabled: true }));
+  emit('update:modelValue', newMappings);
+}
+
+/**
+ * Désélectionne tous les mappings
+ */
+function deselectAll() {
+  const newMappings = mappings.value.map(m => ({ ...m, enabled: false }));
   emit('update:modelValue', newMappings);
 }
 
@@ -65,23 +92,14 @@ function updateMapping(index: number, field: 'gristColumn' | 'apiField', value: 
  */
 const availableApiFields = computed(() => {
   if (!props.sampleData) return [];
-  
-  const fields: string[] = [];
-  
-  function extractKeys(obj: any, prefix = '') {
-    for (const key in obj) {
-      const path = prefix ? `${prefix}.${key}` : key;
-      fields.push(path);
-      
-      // Extraction récursive pour objets imbriqués (1 niveau seulement)
-      if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-        extractKeys(obj[key], path);
-      }
-    }
-  }
-  
-  extractKeys(props.sampleData);
-  return fields;
+  return extractAllKeys(props.sampleData);
+});
+
+/**
+ * Compte le nombre de mappings actifs
+ */
+const enabledCount = computed(() => {
+  return mappings.value.filter(m => m.enabled !== false).length;
 });
 </script>
 
@@ -94,10 +112,44 @@ const availableApiFields = computed(() => {
       </p>
     </div>
     
+    <!-- Barre d'actions -->
+    <div class="action-bar">
+      <button 
+        v-if="sampleData" 
+        @click="autoGenerateMappings" 
+        class="btn-auto-generate"
+        title="Générer automatiquement les mappings à partir des données API"
+      >
+        ✨ Générer automatiquement
+      </button>
+      <div class="bulk-actions">
+        <button 
+          @click="selectAll" 
+          class="btn-bulk"
+          :disabled="mappings.length === 0"
+          title="Sélectionner tous les mappings"
+        >
+          ✅ Tout sélectionner
+        </button>
+        <button 
+          @click="deselectAll" 
+          class="btn-bulk"
+          :disabled="mappings.length === 0"
+          title="Désélectionner tous les mappings"
+        >
+          ⬜ Tout désélectionner
+        </button>
+      </div>
+      <div v-if="mappings.length > 0" class="mapping-count">
+        {{ enabledCount }} / {{ mappings.length }} activé(s)
+      </div>
+    </div>
+    
     <div class="table-container">
       <table>
         <thead>
           <tr>
+            <th class="col-checkbox">Actif</th>
             <th class="col-number">#</th>
             <th class="col-grist">Colonne Grist</th>
             <th class="col-arrow">→</th>
@@ -106,7 +158,21 @@ const availableApiFields = computed(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(mapping, index) in mappings" :key="index" class="mapping-row">
+          <tr 
+            v-for="(mapping, index) in mappings" 
+            :key="index" 
+            class="mapping-row"
+            :class="{ 'disabled-row': mapping.enabled === false }"
+          >
+            <td class="col-checkbox">
+              <input
+                type="checkbox"
+                :checked="mapping.enabled !== false"
+                @change="updateMapping(index, 'enabled', ($event.target as HTMLInputElement).checked)"
+                class="checkbox-field"
+                title="Activer/désactiver ce mapping"
+              />
+            </td>
             <td class="col-number">{{ index + 1 }}</td>
             <td class="col-grist">
               <input
@@ -115,6 +181,7 @@ const availableApiFields = computed(() => {
                 @input="updateMapping(index, 'gristColumn', ($event.target as HTMLInputElement).value)"
                 placeholder="Ex: Name, Email, Score..."
                 class="input-field"
+                :disabled="mapping.enabled === false"
               />
             </td>
             <td class="col-arrow">
@@ -128,6 +195,7 @@ const availableApiFields = computed(() => {
                 placeholder="Ex: user.name, email..."
                 class="input-field"
                 :list="`api-fields-${index}`"
+                :disabled="mapping.enabled === false"
               />
               <datalist v-if="availableApiFields.length > 0" :id="`api-fields-${index}`">
                 <option v-for="field in availableApiFields" :key="field" :value="field" />
@@ -144,8 +212,8 @@ const availableApiFields = computed(() => {
             </td>
           </tr>
           <tr v-if="mappings.length === 0" class="empty-row">
-            <td colspan="5" class="empty-message">
-              Aucun mapping défini. Cliquez sur "Ajouter une ligne" pour commencer.
+            <td colspan="6" class="empty-message">
+              Aucun mapping défini. Cliquez sur "Générer automatiquement" ou "Ajouter une ligne" pour commencer.
             </td>
           </tr>
         </tbody>
@@ -157,7 +225,8 @@ const availableApiFields = computed(() => {
         ➕ Ajouter une ligne de mapping
       </button>
       <div v-if="availableApiFields.length > 0" class="info-box">
-        <strong>💡 Astuce:</strong> Les champs API disponibles sont suggérés automatiquement
+        <strong>💡 Astuce:</strong> Les champs API disponibles sont suggérés automatiquement. 
+        Vous pouvez renommer les colonnes Grist à votre convenance.
       </div>
     </div>
   </div>
@@ -181,6 +250,69 @@ const availableApiFields = computed(() => {
 .help-text {
   margin: 0 0 15px 0;
   color: #666;
+  font-size: 0.9em;
+}
+
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-auto-generate {
+  padding: 10px 20px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.btn-auto-generate:hover {
+  background: #1976D2;
+}
+
+.btn-bulk {
+  padding: 8px 16px;
+  background: #757575;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s;
+}
+
+.btn-bulk:hover:not(:disabled) {
+  background: #616161;
+}
+
+.btn-bulk:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.mapping-count {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 4px;
+  font-weight: 600;
   font-size: 0.9em;
 }
 
@@ -212,6 +344,11 @@ td {
   border: 1px solid #ddd;
 }
 
+.col-checkbox {
+  width: 60px;
+  text-align: center;
+}
+
 .col-number {
   width: 50px;
   text-align: center;
@@ -221,7 +358,7 @@ td {
 
 .col-grist,
 .col-api {
-  width: 40%;
+  width: 35%;
 }
 
 .col-arrow {
@@ -236,6 +373,12 @@ td {
   text-align: center;
 }
 
+.checkbox-field {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
 .input-field {
   width: 100%;
   padding: 8px;
@@ -243,6 +386,7 @@ td {
   border-radius: 4px;
   font-size: 0.95em;
   box-sizing: border-box;
+  transition: border-color 0.2s, opacity 0.2s;
 }
 
 .input-field:focus {
@@ -251,13 +395,28 @@ td {
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
+.input-field:disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .mapping-row {
   background: white;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
 }
 
 .mapping-row:hover {
   background: #f0f8f0;
+}
+
+.disabled-row {
+  opacity: 0.5;
+}
+
+.disabled-row:hover {
+  background: #fafafa;
 }
 
 .empty-row {
@@ -323,6 +482,20 @@ td {
 }
 
 @media (max-width: 768px) {
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .bulk-actions {
+    flex-direction: column;
+  }
+  
+  .mapping-count {
+    margin-left: 0;
+    text-align: center;
+  }
+  
   .table-container {
     font-size: 0.85em;
   }
@@ -333,7 +506,8 @@ td {
   }
   
   .col-number,
-  .col-arrow {
+  .col-arrow,
+  .col-checkbox {
     width: 40px;
   }
 }
