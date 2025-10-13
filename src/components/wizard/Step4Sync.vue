@@ -34,6 +34,31 @@ const recordCount = computed(() => props.apiData.length);
 const validMappingsCount = computed(() => getValidMappings(props.mappings).length);
 
 /**
+ * Vérifie si la configuration Grist est complète et valide
+ */
+const isGristConfigValid = computed(() => {
+  return (
+    props.gristConfig.docId && 
+    props.gristConfig.docId !== 'YOUR_DOC_ID' &&
+    props.gristConfig.tableId && 
+    props.gristConfig.tableId !== 'YOUR_TABLE_ID' &&
+    props.gristConfig.gristApiUrl &&
+    props.gristConfig.gristApiUrl !== ''
+  );
+});
+
+/**
+ * Vérifie si on peut lancer la synchronisation
+ */
+const canSync = computed(() => {
+  return (
+    isGristConfigValid.value &&
+    props.apiData.length > 0 &&
+    getValidMappings(props.mappings).length > 0
+  );
+});
+
+/**
  * Ajoute un log
  */
 function addLog(message: string, type: 'info' | 'success' | 'error' = 'info') {
@@ -150,8 +175,27 @@ async function syncToGrist() {
           icon="ri-upload-cloud-line"
           size="lg"
           :loading="isLoading"
+          :disabled="!canSync"
           @click="syncToGrist"
         />
+        <div v-if="!canSync" class="fr-mt-2w">
+          <DsfrCallout 
+            type="warning"
+            title="⚠️ Configuration incomplète"
+          >
+            <p class="fr-text--sm">
+              Pour lancer la synchronisation, veuillez vous assurer que :
+            </p>
+            <ul class="fr-text--sm">
+              <li v-if="!isGristConfigValid">✗ La configuration Grist est complète (Document ID, Table ID, URL API)</li>
+              <li v-else>✓ Configuration Grist valide</li>
+              <li v-if="recordCount === 0">✗ Des données API sont chargées</li>
+              <li v-else>✓ {{ recordCount }} enregistrement(s) chargé(s)</li>
+              <li v-if="validMappingsCount === 0">✗ Au moins un mapping est configuré</li>
+              <li v-else>✓ {{ validMappingsCount }} mapping(s) configuré(s)</li>
+            </ul>
+          </DsfrCallout>
+        </div>
       </div>
 
       <!-- Logs de synchronisation -->

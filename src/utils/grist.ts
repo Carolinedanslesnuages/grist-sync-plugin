@@ -25,6 +25,61 @@ export interface GristAddRecordsResponse {
 }
 
 /**
+ * Interface pour les informations extraites d'une URL Grist
+ */
+export interface ParsedGristUrl {
+  docId: string | null;
+  gristApiUrl: string | null;
+}
+
+/**
+ * Parse une URL de document Grist pour extraire le docId et l'URL de base
+ * 
+ * @param url - L'URL complète du document Grist
+ * @returns Un objet contenant le docId et l'URL de base de l'API
+ * 
+ * @example
+ * parseGristUrl('https://docs.getgrist.com/doc/abc123xyz')
+ * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com' }
+ * 
+ * parseGristUrl('https://grist.example.com/o/myorg/doc/myDocId/p/5')
+ * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com' }
+ */
+export function parseGristUrl(url: string): ParsedGristUrl {
+  try {
+    const urlObj = new URL(url);
+    const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
+    
+    // Recherche du docId dans le chemin de l'URL
+    // Format typique: /doc/{docId} ou /o/{org}/doc/{docId}
+    const docMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
+    
+    if (docMatch && docMatch[1]) {
+      return {
+        docId: docMatch[1],
+        gristApiUrl: baseUrl
+      };
+    }
+    
+    return { docId: null, gristApiUrl: null };
+  } catch (error) {
+    // URL invalide
+    return { docId: null, gristApiUrl: null };
+  }
+}
+
+/**
+ * Valide si une chaîne de caractères est une URL Grist valide
+ * 
+ * @param url - L'URL à valider
+ * @returns true si l'URL est valide et contient un docId
+ */
+export function isValidGristUrl(url: string): boolean {
+  const parsed = parseGristUrl(url);
+  return parsed.docId !== null && parsed.gristApiUrl !== null;
+}
+
+/**
  * Classe pour gérer les interactions avec l'API Grist
  */
 export class GristClient {
@@ -152,6 +207,64 @@ export class GristClient {
       return true;
     } catch {
       return false;
+    }
+  }
+  
+  /**
+   * Vérifie si le token API est valide en testant une requête simple
+   * 
+   * @returns Un objet avec le statut de validation et un message
+   */
+  async validateApiToken(): Promise<{ valid: boolean; message: string; needsAuth: boolean }> {
+    try {
+      const response = await fetch(this.buildApiUrl('/records?limit=1'), {
+        method: 'GET',
+        headers: this.buildHeaders()
+      });
+      
+      if (response.status === 401) {
+        return {
+          valid: false,
+          message: 'Document privé - Token API requis',
+          needsAuth: true
+        };
+      }
+      
+      if (response.status === 403) {
+        return {
+          valid: false,
+          message: 'Token API invalide ou permissions insuffisantes',
+          needsAuth: true
+        };
+      }
+      
+      if (response.ok) {
+        if (this.config.apiTokenGrist) {
+          return {
+            valid: true,
+            message: 'Token API valide et authentifié',
+            needsAuth: false
+          };
+        } else {
+          return {
+            valid: true,
+            message: 'Document public - Aucune authentification requise',
+            needsAuth: false
+          };
+        }
+      }
+      
+      return {
+        valid: false,
+        message: `Erreur HTTP ${response.status}`,
+        needsAuth: response.status === 401 || response.status === 403
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: error instanceof Error ? error.message : 'Erreur de connexion',
+        needsAuth: false
+      };
     }
   }
 }
