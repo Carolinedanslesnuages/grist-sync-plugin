@@ -215,7 +215,7 @@ watch(localConfig, () => {
           <DsfrCallout title="🔐 Informations sur le token API">
             <div class="token-display">
               <strong>Token configuré :</strong> 
-              <code class="masked-token">{{ maskedApiToken }}</code>
+              <code class="fr-code masked-token">{{ maskedApiToken }}</code>
             </div>
             <div v-if="apiTokenValidation" class="token-validation fr-mt-2w">
               <DsfrBadge 
@@ -251,7 +251,7 @@ watch(localConfig, () => {
           <ul class="fr-text--sm">
             <li>
               <strong>Document ID :</strong> Ouvrez votre document Grist, l'ID se trouve dans l'URL 
-              (ex: <code>https://docs.getgrist.com/doc/<strong>YOUR_DOC_ID</strong></code>)
+              (ex: <code class="fr-code">https://docs.getgrist.com/doc/<strong>YOUR_DOC_ID</strong></code>)
             </li>
             <li>
               <strong>Table ID :</strong> Le nom de votre table visible dans la barre latérale gauche de Grist
@@ -351,14 +351,6 @@ watch(localConfig, () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-code {
-  background: #f5f5f5;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.9em;
 }
 
 .fr-error-text {

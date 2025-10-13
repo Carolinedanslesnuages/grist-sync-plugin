@@ -30,6 +30,19 @@ const isLoading = ref(false);
 const statusMessage = ref('');
 const statusType = ref<'success' | 'error' | 'info'>('info');
 
+const steps = [
+  { title: 'Récupération des données' },
+  { title: 'Mapping des champs' },
+  { title: 'Configuration Grist' },
+  { title: 'Synchronisation' }
+]
+
+// Navigation
+function goToStep(step: number) {
+  if (step >= 1 && step <= totalSteps) {
+    currentStep.value = step
+  }
+}
 /**
  * Navigation entre les étapes
  */
@@ -50,12 +63,6 @@ function nextStep() {
 function previousStep() {
   if (currentStep.value > 1) {
     currentStep.value--;
-  }
-}
-
-function goToStep(step: number) {
-  if (step >= 1 && step <= totalSteps) {
-    currentStep.value = step;
   }
 }
 
@@ -124,32 +131,12 @@ function handleStep1Complete(data: any[], url: string) {
 
     <!-- Indicateur de progression -->
     <div class="fr-container">
-      <nav class="fr-stepper" role="navigation" aria-label="Étapes">
-        <h2 class="fr-stepper__title">
-          Étape {{ currentStep }} sur {{ totalSteps }}
-        </h2>
-        <div class="fr-stepper__steps" :data-fr-current-step="currentStep" :data-fr-steps="totalSteps">
-          <div 
-            v-for="step in totalSteps" 
-            :key="step"
-            class="fr-stepper__step"
-            :class="{
-              'fr-stepper__step--active': step === currentStep,
-              'fr-stepper__step--complete': step < currentStep
-            }"
-            @click="step < currentStep ? goToStep(step) : null"
-            :style="{ cursor: step < currentStep ? 'pointer' : 'default' }"
-          >
-            <span class="fr-stepper__step-number">{{ step }}</span>
-            <span class="fr-stepper__step-title">
-              <template v-if="step === 1">Récupération des données</template>
-              <template v-else-if="step === 2">Mapping des champs</template>
-              <template v-else-if="step === 3">Configuration Grist</template>
-              <template v-else-if="step === 4">Synchronisation</template>
-            </span>
-          </div>
-        </div>
-      </nav>
+      <DsfrStepper
+  :steps="steps"
+  :current-step="currentStep"
+  :onStepClick="goToStep"
+  :total-steps="totalSteps"
+/>
     </div>
 
     <!-- Message de statut global -->
