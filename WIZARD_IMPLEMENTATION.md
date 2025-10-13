@@ -73,15 +73,65 @@ The WizardStepper component manages the global state:
 - Adaptive font sizes and spacing
 - Collapsible sections on smaller screens
 
-## Design System
-Uses DSFR (French Government Design System):
-- DsfrButton
-- DsfrInput/DsfrInputGroup
-- DsfrFieldset
-- DsfrAlert
-- DsfrNotice
-- DsfrCallout
-- DsfrBadge
+## Design System & Accessibility
+
+### DSFR Components Used
+The application fully adheres to the **DSFR (Système de Design de l'État Français)** for consistency, accessibility, and compliance with French government standards.
+
+#### Core Components
+- **DsfrButton**: All action buttons with variants (primary, secondary, tertiary)
+- **DsfrInput/DsfrInputGroup**: Form inputs with validation and hints
+- **DsfrFieldset**: Form sections with legends
+- **DsfrAlert**: Status messages (success, error, info, warning)
+- **DsfrNotice**: Informational notices
+- **DsfrCallout**: Highlighted tips and recommendations
+- **DsfrBadge**: Status indicators and counters
+
+#### DSFR Design Tokens
+All custom styles use DSFR CSS variables for consistency:
+- **Colors**: `--background-action-high-blue-france`, `--text-title-grey`, `--border-plain-success`
+- **Spacing**: Using rem-based spacing (1rem = 16px) following DSFR scale
+- **Typography**: Marianne font family with DSFR font scales
+- **Shadows**: `--raised-shadow` for elevated cards
+- **Breakpoints**: 48rem (768px) for mobile-first responsive design
+
+### Accessibility (RGAA Compliance)
+
+#### ARIA Labels and Roles
+- Stepper navigation uses `role="navigation"` and `aria-label="Étapes"`
+- Form inputs have proper `aria-label` attributes
+- Icon-only buttons include descriptive `title` attributes
+- Tables use proper `scope` attributes on headers
+
+#### Keyboard Navigation
+- All interactive elements are keyboard accessible
+- `focus-visible` outlines with DSFR colors (2px solid blue)
+- Tab order follows logical flow through the wizard
+- Stepper steps can be clicked to navigate back
+
+#### Color Contrast
+- All text meets WCAG AA standards (minimum 4.5:1 ratio)
+- Interactive elements have sufficient contrast in all states
+- Focus indicators are clearly visible (2px blue outline)
+
+#### Responsive Design
+- Mobile-first approach with DSFR breakpoint at 48rem
+- Touch targets meet minimum size requirements (44x44px)
+- Content reflows properly on small screens
+- Font sizes adapt for readability
+
+### Color Palette
+Following DSFR official colors:
+- **Primary Action**: Bleu France (#000091)
+- **Success**: Green (#18753c)
+- **Error**: Red (DSFR error variant)
+- **Info**: Blue info variant
+- **Neutral**: Grey scale variants
+
+### Typography Scale
+- Headings: `.fr-h1` to `.fr-h6` classes
+- Body text: `.fr-text` with size variants (--sm, --lg, --lead)
+- Code/monospace: For technical details and logs
 
 ## Future Enhancements
 - Add ability to save/load wizard state
