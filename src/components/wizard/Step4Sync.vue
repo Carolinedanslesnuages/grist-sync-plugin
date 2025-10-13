@@ -4,6 +4,8 @@ import type { FieldMapping } from '../../utils/mapping';
 import type { GristConfig } from '../../config';
 import { transformRecords, getValidMappings } from '../../utils/mapping';
 import { GristClient } from '../../utils/grist';
+import { analyzeError } from '../../utils/errorHandler';
+import type { ErrorInfo } from '../../utils/errorHandler';
 
 /**
  * Step 4: Bouton de synchronisation et log de statut
@@ -29,6 +31,7 @@ const emit = defineEmits<Emits>();
 const syncLogs = ref<Array<{ time: string; message: string; type: 'info' | 'success' | 'error' }>>([]);
 const syncCompleted = ref(false);
 const syncSuccess = ref(false);
+const lastSyncError = ref<ErrorInfo | null>(null);
 
 const recordCount = computed(() => props.apiData.length);
 const validMappingsCount = computed(() => getValidMappings(props.mappings).length);
@@ -73,6 +76,7 @@ async function syncToGrist() {
   syncLogs.value = [];
   syncCompleted.value = false;
   syncSuccess.value = false;
+  lastSyncError.value = null;
   
   addLog('🚀 Démarrage de la synchronisation...', 'info');
   
@@ -135,8 +139,15 @@ async function syncToGrist() {
     syncSuccess.value = true;
     emit('status', `✅ ${result.records.length} enregistrement(s) synchronisé(s) avec succès!`, 'success');
   } catch (error) {
+    // Analyse détaillée de l'erreur
+    const errorInfo = analyzeError(error, 'grist_sync');
+    lastSyncError.value = errorInfo;
+    
+    addLog(`❌ ${errorInfo.title}`, 'error');
+    addLog(`📋 ${errorInfo.explanation}`, 'error');
+    addLog(`💡 Solution: ${errorInfo.solutions[0]}`, 'error');
+    
     const message = error instanceof Error ? error.message : 'Erreur inconnue';
-    addLog(`❌ Erreur: ${message}`, 'error');
     emit('status', `❌ Erreur lors de la synchronisation: ${message}`, 'error');
     syncCompleted.value = true;
     syncSuccess.value = false;
@@ -242,6 +253,34 @@ async function syncToGrist() {
           title="Échec de la synchronisation"
           description="Une erreur s'est produite lors de la synchronisation. Consultez le journal ci-dessus pour plus de détails."
         />
+      </div>
+
+      <!-- Detailed Error Display -->
+      <div v-if="lastSyncError && !syncSuccess" class="fr-mb-4w">
+        <DsfrAlert
+          type="error"
+          :title="lastSyncError.title"
+          :description="lastSyncError.message"
+        >
+          <template #default>
+            <div class="error-details">
+              <p class="fr-text--sm"><strong>📋 Explication :</strong></p>
+              <p class="fr-text--sm">{{ lastSyncError.explanation }}</p>
+              
+              <p class="fr-text--sm fr-mt-2w"><strong>💡 Solutions recommandées :</strong></p>
+              <ul class="fr-text--sm">
+                <li v-for="(solution, idx) in lastSyncError.solutions" :key="idx">{{ solution }}</li>
+              </ul>
+              
+              <details v-if="lastSyncError.technicalDetails" class="fr-mt-2w">
+                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
+                  🔧 Détails techniques
+                </summary>
+                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastSyncError.technicalDetails }}</pre>
+              </details>
+            </div>
+          </template>
+        </DsfrAlert>
       </div>
 
       <!-- Actions finales -->
@@ -396,6 +435,19 @@ code {
   border-radius: 3px;
   font-family: monospace;
   font-size: 0.9em;
+}
+
+.error-details {
+  margin-top: 1rem;
+}
+
+.error-details ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.error-details ul li {
+  margin: 0.25rem 0;
 }
 
 @media (max-width: 768px) {

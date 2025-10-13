@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { analyzeError, formatErrorShort } from '../../utils/errorHandler';
+import type { ErrorInfo } from '../../utils/errorHandler';
 
 /**
  * Step 1: Saisie de l'URL API externe et récupération des données
@@ -23,6 +25,7 @@ const emit = defineEmits<Emits>();
 const localUrl = ref(props.backendUrl);
 const previewData = ref<any[] | null>(null);
 const sampleRecord = ref<Record<string, any> | null>(null);
+const lastError = ref<ErrorInfo | null>(null);
 
 /**
  * Récupère les données depuis le backend
@@ -33,9 +36,10 @@ async function fetchApiData() {
     return;
   }
   
-  // Reset preview data when fetching new data
+  // Reset preview data and error when fetching new data
   previewData.value = null;
   sampleRecord.value = null;
+  lastError.value = null;
   
   emit('update:isLoading', true);
   
@@ -79,8 +83,15 @@ async function fetchApiData() {
       emit('status', '⚠️ Aucune donnée trouvée dans la réponse de l\'API', 'error');
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erreur inconnue';
-    emit('status', `❌ Erreur lors de la récupération: ${message}`, 'error');
+    // Analyse détaillée de l'erreur
+    const errorInfo = analyzeError(error, 'api_fetch');
+    lastError.value = errorInfo;
+    
+    // Message court pour le status
+    const shortMessage = formatErrorShort(errorInfo);
+    emit('status', `❌ ${shortMessage}`, 'error');
+    
+    console.error('Erreur détaillée:', errorInfo);
   } finally {
     emit('update:isLoading', false);
   }
@@ -151,6 +162,34 @@ function continueToNextStep() {
             </ul>
           </div>
         </details>
+      </div>
+
+      <!-- Detailed Error Display -->
+      <div v-if="lastError" class="fr-mt-4w">
+        <DsfrAlert
+          type="error"
+          :title="lastError.title"
+          :description="lastError.message"
+        >
+          <template #default>
+            <div class="error-details">
+              <p class="fr-text--sm"><strong>📋 Explication :</strong></p>
+              <p class="fr-text--sm">{{ lastError.explanation }}</p>
+              
+              <p class="fr-text--sm fr-mt-2w"><strong>💡 Solutions recommandées :</strong></p>
+              <ul class="fr-text--sm">
+                <li v-for="(solution, idx) in lastError.solutions" :key="idx">{{ solution }}</li>
+              </ul>
+              
+              <details v-if="lastError.technicalDetails" class="fr-mt-2w">
+                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
+                  🔧 Détails techniques
+                </summary>
+                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
+              </details>
+            </div>
+          </template>
+        </DsfrAlert>
       </div>
 
       <!-- Preview of fetched data -->
@@ -259,6 +298,19 @@ code {
   border-radius: 3px;
   font-family: monospace;
   font-size: 0.9em;
+}
+
+.error-details {
+  margin-top: 1rem;
+}
+
+.error-details ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.error-details ul li {
+  margin: 0.25rem 0;
 }
 
 .data-preview {

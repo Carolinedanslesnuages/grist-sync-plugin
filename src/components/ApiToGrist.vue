@@ -6,6 +6,8 @@ import { transformRecords, getValidMappings } from '../utils/mapping';
 import { GristClient } from '../utils/grist';
 import { defaultConfig } from '../config';
 import type { GristConfig } from '../config';
+import { analyzeError, formatErrorShort } from '../utils/errorHandler';
+import type { ErrorInfo } from '../utils/errorHandler';
 
 
 /**
@@ -36,6 +38,9 @@ const mappings = ref<FieldMapping[]>([
 // Configuration Grist (éditable)
 const gristConfig = ref<GristConfig>({ ...defaultConfig });
 
+// Dernière erreur détaillée
+const lastError = ref<ErrorInfo | null>(null);
+
 /**
  * Affiche un message de statut
  */
@@ -64,6 +69,7 @@ async function fetchApiData() {
   
   isLoading.value = true;
   statusMessage.value = '';
+  lastError.value = null;
   
   try {
     // REFACTORED: Requête simple sans authentification - le backend gère tout
@@ -103,10 +109,17 @@ async function fetchApiData() {
       showStatus('⚠️ Aucune donnée trouvée dans la réponse de l\'API', 'error');
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erreur inconnue';
-    showStatus(`❌ Erreur lors de la récupération: ${message}`, 'error');
+    // Analyse détaillée de l'erreur
+    const errorInfo = analyzeError(error, 'api_fetch');
+    lastError.value = errorInfo;
+    
+    const shortMessage = formatErrorShort(errorInfo);
+    showStatus(`❌ ${shortMessage}`, 'error');
+    
     apiData.value = [];
     sampleRecord.value = undefined;
+    
+    console.error('Erreur détaillée:', errorInfo);
   } finally {
     isLoading.value = false;
   }
@@ -181,6 +194,7 @@ async function testGristConnection() {
   }
   
   isLoading.value = true;
+  lastError.value = null;
   
   try {
     const client = new GristClient(gristConfig.value);
@@ -192,8 +206,14 @@ async function testGristConnection() {
       showStatus('❌ Impossible de se connecter à Grist. Vérifiez votre configuration.', 'error');
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erreur inconnue';
-    showStatus(`❌ Erreur de connexion: ${message}`, 'error');
+    // Analyse détaillée de l'erreur
+    const errorInfo = analyzeError(error, 'grist_sync');
+    lastError.value = errorInfo;
+    
+    const shortMessage = formatErrorShort(errorInfo);
+    showStatus(`❌ ${shortMessage}`, 'error');
+    
+    console.error('Erreur détaillée:', errorInfo);
   } finally {
     isLoading.value = false;
   }
@@ -268,6 +288,34 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
       <DsfrBadge v-if="recordCount > 0" type="info">
         {{ recordCount }} enregistrement(s) chargé(s)
       </DsfrBadge>
+      
+      <!-- Detailed Error Display -->
+      <div v-if="lastError" class="fr-mt-4w">
+        <DsfrAlert
+          type="error"
+          :title="lastError.title"
+          :description="lastError.message"
+        >
+          <template #default>
+            <div class="error-details">
+              <p class="fr-text--sm"><strong>📋 Explication :</strong></p>
+              <p class="fr-text--sm">{{ lastError.explanation }}</p>
+              
+              <p class="fr-text--sm fr-mt-2w"><strong>💡 Solutions recommandées :</strong></p>
+              <ul class="fr-text--sm">
+                <li v-for="(solution, idx) in lastError.solutions" :key="idx">{{ solution }}</li>
+              </ul>
+              
+              <details v-if="lastError.technicalDetails" class="fr-mt-2w">
+                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
+                  🔧 Détails techniques
+                </summary>
+                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
+              </details>
+            </div>
+          </template>
+        </DsfrAlert>
+      </div>
     </DsfrFieldset>
 
     <!-- Section Aperçu des données récupérées -->

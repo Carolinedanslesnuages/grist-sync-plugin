@@ -5,6 +5,7 @@
  */
 
 import type { GristConfig } from '../config';
+import { analyzeError } from './errorHandler';
 
 /**
  * Interface pour une requête d'ajout d'enregistrements à Grist
@@ -199,13 +200,18 @@ export class GristClient {
       
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Erreur Grist (${response.status}): ${errorText}`);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
       
       return await response.json();
     } catch (error) {
+      // Analyse l'erreur avec notre gestionnaire d'erreurs
+      const errorInfo = analyzeError(error, 'grist_sync');
+      this.log(`${errorInfo.title}: ${errorInfo.message}`, 'error');
+      this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      
       if (error instanceof Error) {
-        throw new Error(`Échec de l'insertion dans Grist: ${error.message}`);
+        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
       }
       throw error;
     }
@@ -232,14 +238,17 @@ export class GristClient {
       
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Erreur Grist (${response.status}): ${errorText}`);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
       return data.records || [];
     } catch (error) {
+      // Analyse l'erreur avec notre gestionnaire d'erreurs
+      const errorInfo = analyzeError(error, 'grist_sync');
+      
       if (error instanceof Error) {
-        throw new Error(`Échec de la lecture depuis Grist: ${error.message}`);
+        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
       }
       throw error;
     }
@@ -263,14 +272,17 @@ export class GristClient {
       
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Erreur Grist (${response.status}): ${errorText}`);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
       
       const data: GristColumnsResponse = await response.json();
       return data.columns || [];
     } catch (error) {
+      // Analyse l'erreur avec notre gestionnaire d'erreurs
+      const errorInfo = analyzeError(error, 'grist_sync');
+      
       if (error instanceof Error) {
-        throw new Error(`Échec de la récupération des colonnes: ${error.message}`);
+        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
       }
       throw error;
     }
@@ -311,13 +323,18 @@ export class GristClient {
       
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Erreur Grist (${response.status}): ${errorText}`);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
       
       return await response.json();
     } catch (error) {
+      // Analyse l'erreur avec notre gestionnaire d'erreurs
+      const errorInfo = analyzeError(error, 'grist_sync');
+      this.log(`${errorInfo.title}: ${errorInfo.message}`, 'error');
+      this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      
       if (error instanceof Error) {
-        throw new Error(`Échec de la création des colonnes: ${error.message}`);
+        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
       }
       throw error;
     }
