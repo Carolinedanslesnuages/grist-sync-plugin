@@ -35,6 +35,14 @@ const statusType = ref<'success' | 'error' | 'info'>('info');
  */
 function nextStep() {
   if (currentStep.value < totalSteps) {
+    // For steps 2 and 3, trigger validation and update data before moving to next step
+    if (currentStep.value === 2) {
+      // Step 2: Save mappings and move forward
+      showStatus('✅ Mapping configuré avec succès', 'success');
+    } else if (currentStep.value === 3) {
+      // Step 3: Save grist config and move forward
+      showStatus('✅ Configuration Grist validée', 'success');
+    }
     currentStep.value++;
   }
 }
@@ -100,18 +108,6 @@ function handleStep1Complete(data: any[], url: string) {
   apiData.value = data;
   sampleRecord.value = data.length > 0 ? data[0] : undefined;
   showStatus('✅ Données récupérées avec succès', 'success');
-  nextStep();
-}
-
-function handleStep2Complete(newMappings: FieldMapping[]) {
-  mappings.value = newMappings;
-  showStatus('✅ Mapping configuré avec succès', 'success');
-  nextStep();
-}
-
-function handleStep3Complete(config: GristConfig) {
-  gristConfig.value = config;
-  showStatus('✅ Configuration Grist validée', 'success');
   nextStep();
 }
 </script>
@@ -181,15 +177,11 @@ function handleStep3Complete(config: GristConfig) {
           :apiData="apiData"
           :sampleRecord="sampleRecord"
           v-model:mappings="mappings"
-          @complete="handleStep2Complete"
-          @back="previousStep"
         />
         <Step3GristConfig
           v-else-if="currentStep === 3"
           v-model:config="gristConfig"
           v-model:isLoading="isLoading"
-          @complete="handleStep3Complete"
-          @back="previousStep"
           @status="showStatus"
         />
         <Step4Sync
@@ -198,9 +190,7 @@ function handleStep3Complete(config: GristConfig) {
           :mappings="mappings"
           :gristConfig="gristConfig"
           v-model:isLoading="isLoading"
-          @back="previousStep"
           @status="showStatus"
-          @restart="goToStep(1)"
         />
       </Transition>
     </div>
@@ -209,11 +199,12 @@ function handleStep3Complete(config: GristConfig) {
     <div class="fr-container fr-mt-4w fr-pb-6w">
       <div class="wizard-navigation">
         <DsfrButton
-          v-if="currentStep > 1 && currentStep < 4"
+          v-if="currentStep > 1"
           @click="previousStep"
           label="Retour"
           secondary
           icon="ri-arrow-left-line"
+          :disabled="isLoading"
         />
         <div class="spacer"></div>
         <DsfrButton
@@ -223,6 +214,12 @@ function handleStep3Complete(config: GristConfig) {
           label="Suivant"
           icon="ri-arrow-right-line"
           icon-right
+        />
+        <DsfrButton
+          v-if="currentStep === 4"
+          @click="goToStep(1)"
+          label="Nouvelle synchronisation"
+          icon="ri-restart-line"
         />
       </div>
     </div>

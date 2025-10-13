@@ -15,8 +15,6 @@ interface Props {
 interface Emits {
   (e: 'update:config', value: GristConfig): void;
   (e: 'update:isLoading', value: boolean): void;
-  (e: 'complete', config: GristConfig): void;
-  (e: 'back'): void;
   (e: 'status', message: string, type: 'success' | 'error' | 'info'): void;
 }
 
@@ -135,33 +133,12 @@ async function testGristConnection() {
   }
 }
 
-/**
- * Valide et continue
- */
-function validateAndContinue() {
-  // Allow bypassing connection test if config is valid
-  if (!localConfig.value.docId || localConfig.value.docId === 'YOUR_DOC_ID') {
-    emit('status', '⚠️ Veuillez configurer votre Document ID Grist', 'error');
-    return;
-  }
-  
-  if (!localConfig.value.tableId || localConfig.value.tableId === 'YOUR_TABLE_ID') {
-    emit('status', '⚠️ Veuillez configurer votre Table ID Grist', 'error');
-    return;
-  }
-  
-  if (!connectionTested.value) {
-    emit('status', '⚠️ Recommandé: Testez la connexion avant de continuer', 'info');
-  }
-  
-  emit('update:config', localConfig.value);
-  emit('complete', localConfig.value);
-}
-
 // Marque la connexion comme non testée quand la config change
 watch(localConfig, () => {
   connectionTested.value = false;
   apiTokenValidation.value = null;
+  // Update parent config when local config changes
+  emit('update:config', localConfig.value);
 }, { deep: true });
 </script>
 
@@ -286,23 +263,6 @@ watch(localConfig, () => {
           </ul>
         </DsfrCallout>
       </div>
-
-      <!-- Actions -->
-      <div class="step-actions fr-mt-4w">
-        <DsfrButton
-          label="Retour"
-          secondary
-          icon="ri-arrow-left-line"
-          @click="emit('back')"
-        />
-        <DsfrButton
-          label="Continuer"
-          icon="ri-arrow-right-line"
-          icon-right
-          :disabled="!isConfigValid"
-          @click="validateAndContinue"
-        />
-      </div>
     </div>
   </div>
 </template>
@@ -336,14 +296,6 @@ watch(localConfig, () => {
 
 .step-content {
   max-width: 800px;
-}
-
-.step-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e5e5;
 }
 
 .separator-text {
@@ -416,10 +368,6 @@ code {
 }
 
 @media (max-width: 768px) {
-  .step-actions {
-    flex-direction: column;
-  }
-  
   .token-display {
     flex-direction: column;
     align-items: flex-start;
