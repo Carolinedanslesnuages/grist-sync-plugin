@@ -12,11 +12,14 @@ import type { GristConfig } from '../config';
  * Composant principal ApiToGrist
  * 
  * Permet de synchroniser des données depuis n'importe quelle API vers Grist
+ * 
+ * REFACTORED: L'authentification est maintenant gérée par le backend.
+ * Le plugin ne demande plus de token à l'utilisateur, il utilise uniquement
+ * l'URL du backend qui s'occupe de l'authentification de manière sécurisée.
  */
 
 // État du formulaire
-const apiUrl = ref('');
-const apiToken = ref('');
+const backendUrl = ref(''); // REFACTORED: Renommé de apiUrl vers backendUrl pour plus de clarté
 const isLoading = ref(false);
 const statusMessage = ref('');
 const statusType = ref<'success' | 'error' | 'info'>('info');
@@ -47,11 +50,15 @@ function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info'
 }
 
 /**
- * Récupère les données depuis l'API externe
+ * Récupère les données depuis le backend
+ * 
+ * REFACTORED: L'authentification avec l'API externe est désormais gérée par le backend.
+ * Le plugin fait simplement une requête GET au backend qui retourne les données.
+ * Aucun token n'est envoyé depuis le frontend.
  */
 async function fetchApiData() {
-  if (!apiUrl.value) {
-    showStatus('⚠️ Veuillez saisir une URL d\'API', 'error');
+  if (!backendUrl.value) {
+    showStatus('⚠️ Veuillez saisir l\'URL du backend', 'error');
     return;
   }
   
@@ -59,15 +66,12 @@ async function fetchApiData() {
   statusMessage.value = '';
   
   try {
+    // REFACTORED: Requête simple sans authentification - le backend gère tout
     const headers: HeadersInit = {
       'Content-Type': 'application/json'
     };
     
-    if (apiToken.value) {
-      headers['Authorization'] = `Bearer ${apiToken.value}`;
-    }
-    
-    const response = await fetch(apiUrl.value, {
+    const response = await fetch(backendUrl.value, {
       method: 'GET',
       headers
     });
@@ -203,7 +207,7 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
 </script>
 
 <template>
-  <DsfrContainer>
+  <div class="fr-container">
     <h1 level="1">API vers Grist - Synchronisation</h1>
     <p class="fr-mb-4w">
       Synchronisez facilement vos données API vers Grist avec un mapping visuel
@@ -243,19 +247,15 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
     </DsfrFieldset>
 
     <!-- Section API Source -->
-    <DsfrFieldset legend="Source API">
+    <!-- REFACTORED: Suppression du champ Token API - l'authentification est gérée par le backend -->
+    <DsfrFieldset legend="Source de données (Backend)">
       <DsfrInput
-        label="URL de l'API *"
-        v-model="apiUrl"
+        label="URL du backend *"
+        v-model="backendUrl"
         type="url"
-        placeholder="https://api.example.com/data"
+        placeholder="https://backend.example.com/api/data"
         @keyup.enter="fetchApiData"
-      />
-      <DsfrInput
-        label="Token API (optionnel)"
-        v-model="apiToken"
-        type="password"
-        placeholder="Bearer token si nécessaire"
+        hint="L'URL du backend qui fournit les données. Le backend gère l'authentification de manière sécurisée."
       />
       <DsfrButton
         class="fr-m-4v"
@@ -268,6 +268,38 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
       <DsfrBadge v-if="recordCount > 0" type="info">
         {{ recordCount }} enregistrement(s) chargé(s)
       </DsfrBadge>
+    </DsfrFieldset>
+
+    <!-- Section Aperçu des données récupérées -->
+    <!-- REFACTORED: Affichage des données dans un format lisible avec les styles DSFR -->
+    <DsfrFieldset legend="Aperçu des données" v-if="apiData.length > 0">
+      <DsfrNotice
+        title="Données récupérées avec succès"
+        :closeable="false"
+      >
+        {{ recordCount }} enregistrement(s) disponible(s) pour la synchronisation
+      </DsfrNotice>
+      
+      <!-- Affichage du premier enregistrement comme exemple -->
+      <div v-if="sampleRecord" class="fr-mt-2w">
+        <p class="fr-text--bold">Exemple de données (premier enregistrement) :</p>
+        <div class="fr-table fr-table--bordered">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Champ</th>
+                <th scope="col">Valeur</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(value, key) in sampleRecord" :key="String(key)">
+                <td class="fr-text--bold">{{ key }}</td>
+                <td>{{ typeof value === 'object' ? JSON.stringify(value) : value }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </DsfrFieldset>
 
     <!-- Section Mapping -->
@@ -296,9 +328,9 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
         @click="syncToGrist"
         label="Synchroniser vers Grist"
       />
-      <DsfrText>
+      <p class="fr-text">
         Cette action va insérer {{ recordCount }} enregistrement(s) dans votre table Grist
-      </DsfrText>
+      </p>
     </div>
-  </DsfrContainer>
+  </div>
 </template>
