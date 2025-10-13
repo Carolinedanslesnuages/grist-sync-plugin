@@ -17,6 +17,9 @@ export interface GristConfig {
   
   /** URL de base de l'API Grist (par défaut: https://docs.getgrist.com) */
   gristApiUrl?: string;
+  
+  /** Créer automatiquement les colonnes manquantes (par défaut: true) */
+  autoCreateColumns?: boolean;
 }
 
 /**
@@ -27,5 +30,6 @@ export const defaultConfig: GristConfig = {
   docId: 'YOUR_DOC_ID',
   tableId: 'YOUR_TABLE_ID',
   apiTokenGrist: undefined, // Optionnel: ajoutez votre token ici
-  gristApiUrl: 'https://docs.getgrist.com'
+  gristApiUrl: 'https://docs.getgrist.com',
+  autoCreateColumns: true // Par défaut, créer automatiquement les colonnes manquantes
 };

@@ -108,9 +108,23 @@ async function syncToGrist() {
     
     addLog(`✓ ${transformedData.length} enregistrement(s) transformé(s)`, 'success');
     
-    // Insère dans Grist
+    // Analyse des colonnes nécessaires
+    const requiredColumns = new Set<string>();
+    for (const record of transformedData) {
+      for (const key of Object.keys(record)) {
+        requiredColumns.add(key);
+      }
+    }
+    addLog(`📋 ${requiredColumns.size} colonne(s) détectée(s): ${Array.from(requiredColumns).join(', ')}`, 'info');
+    
+    // Insère dans Grist (avec création automatique des colonnes si activée)
     addLog('📤 Envoi vers Grist...', 'info');
-    const client = new GristClient(props.gristConfig);
+    
+    if (props.gristConfig.autoCreateColumns !== false) {
+      addLog('🔧 Vérification et création automatique des colonnes manquantes...', 'info');
+    }
+    
+    const client = new GristClient(props.gristConfig, addLog);
     const result = await client.addRecords(transformedData);
     
     addLog(`✅ ${result.records.length} enregistrement(s) synchronisé(s) avec succès!`, 'success');
