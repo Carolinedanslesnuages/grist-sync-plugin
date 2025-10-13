@@ -83,6 +83,8 @@ Net : +205 lignes
 ### Couverture DSFR
 - ✅ 100% des boutons utilisent DsfrButton
 - ✅ 100% des inputs utilisent DsfrInput ou .fr-input
+- ✅ 100% des accordéons utilisent DsfrAccordion
+- ✅ 100% des codes utilisent la classe .fr-code
 - ✅ 100% des couleurs utilisent des variables DSFR
 - ✅ 100% des espacements en rem (échelle DSFR)
 - ✅ 100% des composants avec ARIA appropriés
@@ -123,7 +125,9 @@ Net : +205 lignes
 - `DsfrCallout` (remplacement des info-box)
 - `DsfrAlert` (success, error, info, warning)
 - `DsfrNotice`
+- `DsfrAccordion` (affichage/masquage de contenu)
 - `.fr-table`, `.fr-table--bordered`
+- `.fr-code` (extraits de code)
 
 ## ♿ Accessibilité RGAA
 
