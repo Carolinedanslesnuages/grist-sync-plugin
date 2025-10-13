@@ -230,19 +230,22 @@ function handleStep3Complete(config: GristConfig) {
 </template>
 
 <style scoped>
+/* Container principal avec fond DSFR */
 .wizard-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: var(--background-default-grey);
 }
 
+/* Contenu des étapes avec styles DSFR */
 .wizard-content {
-  background: white;
-  border-radius: 8px;
+  background: var(--background-default-grey-hover);
+  border-radius: 0.5rem;
   padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--raised-shadow);
   min-height: 400px;
 }
 
+/* Navigation entre les étapes */
 .wizard-navigation {
   display: flex;
   justify-content: space-between;
@@ -271,51 +274,70 @@ function handleStep3Complete(config: GristConfig) {
   z-index: 1;
 }
 
+/* Numéro de l'étape avec couleurs DSFR officielles */
 .fr-stepper__step-number {
-  width: 40px;
-  height: 40px;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
-  background: #e5e5e5;
-  color: #666;
+  background: var(--background-disabled-grey);
+  color: var(--text-disabled-grey);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-weight: 700;
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
+  border: 2px solid transparent;
 }
 
+/* Étape active - Bleu France */
 .fr-stepper__step--active .fr-stepper__step-number {
-  background: #000091;
-  color: white;
+  background: var(--background-action-high-blue-france);
+  color: var(--text-inverted-blue-france);
   transform: scale(1.1);
+  border-color: var(--border-action-high-blue-france);
 }
 
+/* Étape complétée - Vert succès */
 .fr-stepper__step--complete .fr-stepper__step-number {
-  background: #18753c;
-  color: white;
+  background: var(--background-flat-success);
+  color: var(--text-inverted-green-tilleul-verveine);
+  border-color: var(--border-plain-success);
 }
 
 .fr-stepper__step--complete .fr-stepper__step-number::before {
   content: '✓';
 }
 
+/* Titre de l'étape avec typographie DSFR */
 .fr-stepper__step-title {
   font-size: 0.875rem;
   text-align: center;
-  color: #666;
+  color: var(--text-mention-grey);
+  line-height: 1.5;
 }
 
 .fr-stepper__step--active .fr-stepper__step-title {
-  color: #000091;
-  font-weight: bold;
+  color: var(--text-action-high-blue-france);
+  font-weight: 700;
 }
 
 .fr-stepper__step--complete .fr-stepper__step-title {
-  color: #18753c;
+  color: var(--text-default-success);
 }
 
-/* Animations de transition */
+/* Étape cliquable - amélioration de l'accessibilité */
+.fr-stepper__step:hover:not(.fr-stepper__step--active) {
+  cursor: pointer;
+}
+
+.fr-stepper__step:focus-visible {
+  outline: 2px solid var(--border-plain-blue-france);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Animations de transition DSFR */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -323,18 +345,19 @@ function handleStep3Complete(config: GristConfig) {
 
 .fade-enter-from {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateX(1.875rem);
 }
 
 .fade-leave-to {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-1.875rem);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* Responsive - Breakpoints DSFR */
+@media (max-width: 48rem) {
   .wizard-content {
     padding: 1rem;
+    border-radius: 0.25rem;
   }
   
   .fr-stepper__step-title {
@@ -342,8 +365,8 @@ function handleStep3Complete(config: GristConfig) {
   }
   
   .fr-stepper__step-number {
-    width: 32px;
-    height: 32px;
+    width: 2rem;
+    height: 2rem;
     font-size: 0.875rem;
   }
 }

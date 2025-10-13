@@ -1,60 +1,46 @@
+/**
+ * Styles globaux alignés sur le Design System de l'État (DSFR)
+ * 
+ * Les styles DSFR principaux sont importés via main.ts
+ * Ce fichier contient uniquement des ajustements spécifiques à l'application
+ */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  /* Utilisation de la typographie DSFR (Marianne) */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+/* Réinitialisation pour l'application */
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--background-default-grey);
+}
+
+/* Container principal */
+#app {
+  width: 100%;
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Amélioration de l'accessibilité */
+*:focus-visible {
+  outline: 2px solid var(--border-plain-blue-france);
+  outline-offset: 2px;
 }
 
-.card {
-  padding: 2em;
+/* Styles utilitaires pour les tableaux */
+.fr-table--responsive {
+  overflow-x: auto;
 }
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+/* Support du mode sombre (si activé dans DSFR) */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: var(--background-alt-grey);
   }
 }
