@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import ApiToGrist from './components/ApiToGrist.vue'
+import WizardStepper from './components/WizardStepper.vue'
 </script>
 
 <template>
   <div class="app-container">
-    <ApiToGrist />
+    <WizardStepper />
   </div>
 </template>
