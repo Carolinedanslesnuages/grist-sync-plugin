@@ -21,6 +21,8 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const localUrl = ref(props.backendUrl);
+const previewData = ref<any[] | null>(null);
+const sampleRecord = ref<Record<string, any> | null>(null);
 
 /**
  * Récupère les données depuis le backend
@@ -30,6 +32,10 @@ async function fetchApiData() {
     emit('status', '⚠️ Veuillez saisir l\'URL du backend', 'error');
     return;
   }
+  
+  // Reset preview data when fetching new data
+  previewData.value = null;
+  sampleRecord.value = null;
   
   emit('update:isLoading', true);
   
@@ -64,8 +70,11 @@ async function fetchApiData() {
     }
     
     if (apiData.length > 0) {
+      // Store data locally for preview
+      previewData.value = apiData;
+      sampleRecord.value = apiData[0];
       emit('update:backendUrl', localUrl.value);
-      emit('complete', apiData, localUrl.value);
+      emit('status', `✅ ${apiData.length} enregistrement(s) récupéré(s) avec succès`, 'success');
     } else {
       emit('status', '⚠️ Aucune donnée trouvée dans la réponse de l\'API', 'error');
     }
@@ -74,6 +83,15 @@ async function fetchApiData() {
     emit('status', `❌ Erreur lors de la récupération: ${message}`, 'error');
   } finally {
     emit('update:isLoading', false);
+  }
+}
+
+/**
+ * Continue to next step with the fetched data
+ */
+function continueToNextStep() {
+  if (previewData.value && previewData.value.length > 0) {
+    emit('complete', previewData.value, localUrl.value);
   }
 }
 </script>
@@ -134,6 +152,56 @@ async function fetchApiData() {
           </div>
         </details>
       </div>
+
+      <!-- Preview of fetched data -->
+      <div v-if="previewData && previewData.length > 0" class="fr-mt-6w">
+        <hr class="fr-hr" />
+        
+        <div class="fr-mt-4w">
+          <DsfrNotice
+            title="✅ Données récupérées avec succès"
+            :closeable="false"
+          >
+            {{ previewData.length }} enregistrement(s) disponible(s) pour la synchronisation
+          </DsfrNotice>
+        </div>
+
+        <!-- Preview of first record -->
+        <div v-if="sampleRecord" class="fr-mt-4w">
+          <h3 class="fr-h6">📋 Aperçu des données (premier enregistrement)</h3>
+          <div class="data-preview">
+            <div class="fr-table fr-table--bordered fr-table--no-caption">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Champ API</th>
+                    <th scope="col">Valeur exemple</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(value, key) in sampleRecord" :key="String(key)">
+                    <td class="field-name">{{ key }}</td>
+                    <td class="field-value">
+                      {{ typeof value === 'object' ? JSON.stringify(value, null, 2) : value }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Continue button -->
+        <div class="fr-mt-4w">
+          <DsfrButton
+            label="Continuer vers le mapping"
+            icon="ri-arrow-right-line"
+            icon-right
+            @click="continueToNextStep"
+            size="lg"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -191,5 +259,32 @@ code {
   border-radius: 3px;
   font-family: monospace;
   font-size: 0.9em;
+}
+
+.data-preview {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+}
+
+.field-name {
+  font-weight: bold;
+  background: #f5f5f5;
+}
+
+.field-value {
+  font-family: monospace;
+  font-size: 0.9em;
+  max-width: 400px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .data-preview {
+    font-size: 0.85em;
+  }
 }
 </style>
