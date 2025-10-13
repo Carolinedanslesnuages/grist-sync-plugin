@@ -3,9 +3,6 @@ import { ref, watch, computed } from 'vue';
 import type { GristConfig } from '../../config';
 import { GristClient, parseGristUrl, isValidGristUrl } from '../../utils/grist';
 
-/**
- * Step 3: Configuration de la cible Grist (URL doc, nom de table, clé API)
- */
 
 interface Props {
   config: GristConfig;
@@ -22,33 +19,30 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const localConfig = ref<GristConfig>({ ...props.config });
+const isLoading = computed(() => props.isLoading);
 const connectionTested = ref(false);
 const documentUrlInput = ref('');
 const urlParseError = ref('');
 const apiTokenValidation = ref<{ valid: boolean; message: string; needsAuth: boolean } | null>(null);
+const applyingProps = ref(false);
 
-// Synchronisation avec le parent
 watch(() => props.config, (newConfig) => {
+  applyingProps.value = true;
   localConfig.value = { ...newConfig };
+  Promise.resolve().then(() => {
+    applyingProps.value = false;
+  });
 }, { deep: true });
 
-/**
- * Valide si tous les champs requis sont remplis
- */
 const isConfigValid = computed(() => {
   return (
-    localConfig.value.docId && 
+    !!localConfig.value.docId &&
     localConfig.value.docId !== 'YOUR_DOC_ID' &&
-    localConfig.value.tableId && 
-    localConfig.value.tableId !== 'YOUR_TABLE_ID' &&
-    localConfig.value.gristApiUrl &&
-    localConfig.value.gristApiUrl !== ''
+    !!localConfig.value.tableId &&
+    localConfig.value.tableId !== 'YOUR_TABLE_ID'
   );
 });
 
-/**
- * Masque le token API pour l'affichage
- */
 const maskedApiToken = computed(() => {
   if (!localConfig.value.apiTokenGrist) {
     return '';
@@ -60,85 +54,169 @@ const maskedApiToken = computed(() => {
   return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4);
 });
 
-/**
- * Parse l'URL du document pour extraire docId et gristApiUrl
- */
-function handleUrlPaste() {
-  urlParseError.value = '';
-  
-  if (!documentUrlInput.value.trim()) {
-    return;
-  }
-  
-  // Vérifier si c'est juste un docId (sans protocole)
-  if (!documentUrlInput.value.includes('://')) {
-    // C'est probablement juste un docId
-    localConfig.value.docId = documentUrlInput.value.trim();
-    emit('status', '✓ Document ID configuré', 'info');
-    return;
-  }
-  
-  // Parser l'URL complète
-  if (isValidGristUrl(documentUrlInput.value)) {
-    const parsed = parseGristUrl(documentUrlInput.value);
-    if (parsed.docId && parsed.gristApiUrl) {
-      localConfig.value.docId = parsed.docId;
-      localConfig.value.gristApiUrl = parsed.gristApiUrl;
-      emit('status', '✅ URL Grist analysée avec succès', 'success');
-      connectionTested.value = false;
-      apiTokenValidation.value = null;
+
+function extractDocAndTableIdFromSegments(segments: string[]): { docId?: string; tableId?: string } {
+  const pIndex = segments.findIndex((s) => s === 'p');
+  let docId: string | undefined;
+  let tableId: string | undefined;
+
+  if (pIndex !== -1 && segments.length > pIndex + 1) {
+    tableId = segments[pIndex + 1];
+    if (segments[0] === 'doc' && segments.length > 1) {
+      docId = segments[1];
+    } else if (segments.length >= 1) {
+      const candidate = segments[0];
+      if (candidate && /^[A-Za-z0-9_-]{6,}$/.test(candidate)) {
+        docId = candidate;
+      } else {
+        docId = segments.find((seg) => /^[A-Za-z0-9_-]{6,}$/.test(seg));
+      }
     }
   } else {
-    urlParseError.value = 'URL invalide. Format attendu: https://docs.getgrist.com/doc/YOUR_DOC_ID';
+    docId = segments.find((seg) => /^[A-Za-z0-9_-]{6,}$/.test(seg));
+  }
+
+  return { docId, tableId };
+}
+
+function handleNoProtocolInput(input: string) {
+  localConfig.value.docId = input.trim();
+  emit('status', '✓ Document ID configuré', 'info');
+}
+
+function handleValidGristUrl(input: string) {
+  const parsed = parseGristUrl(input);
+  if (parsed.docId) {
+    localConfig.value.docId = parsed.docId;
+  }
+  if (parsed.gristApiUrl) {
+    localConfig.value.gristApiUrl = parsed.gristApiUrl;
+  }
+  if ((parsed as any).tableId) {
+    localConfig.value.tableId = (parsed as any).tableId;
+  }
+  emit('status', '✅ URL Grist analysée avec succès', 'success');
+  connectionTested.value = false;
+  apiTokenValidation.value = null;
+}
+
+function handleUrlPaste() {
+  urlParseError.value = '';
+
+  const input = documentUrlInput.value.trim();
+  if (!input) return;
+
+  if (!input.includes('://')) {
+    handleNoProtocolInput(input);
+    return;
+  }
+
+  if (isValidGristUrl(input)) {
+    handleValidGristUrl(input);
+    return;
+  }
+
+  try {
+    const url = new URL(input);
+    const segments = url.pathname.split('/').filter(Boolean);
+    const { docId, tableId } = extractDocAndTableIdFromSegments(segments);
+
+    if (docId) {
+      localConfig.value.docId = docId;
+    }
+    if (tableId) {
+      localConfig.value.tableId = tableId;
+    }
+
+    if (docId || tableId) {
+      emit('status', `✅ URL Grist locale analysée (${docId ?? 'doc?'} / ${tableId ?? 'table?'})`, 'success');
+      connectionTested.value = false;
+      apiTokenValidation.value = null;
+      return;
+    }
+
+    urlParseError.value = 'Impossible d\'extraire le Document ID ou le Table ID depuis l\'URL fournie.';
+    emit('status', '❌ URL Grist non reconnue', 'error');
+  } catch (err) {
+    urlParseError.value = 'URL invalide. Assurez-vous d\'inclure le protocole (ex: http://)';
     emit('status', '❌ URL Grist invalide', 'error');
   }
 }
 
-/**
- * Teste la connexion à Grist et valide le token API
- */
 async function testGristConnection() {
   if (!localConfig.value.docId || localConfig.value.docId === 'YOUR_DOC_ID') {
     emit('status', '⚠️ Veuillez configurer votre Document ID Grist', 'error');
     return;
   }
-  
+
+  if (!localConfig.value.gristApiUrl || localConfig.value.gristApiUrl.trim() === '') {
+    try {
+      if (documentUrlInput.value && documentUrlInput.value.includes('://')) {
+        localConfig.value.gristApiUrl = new URL(documentUrlInput.value).origin;
+        emit('status', `ℹ️ URL API Grist devinée : ${localConfig.value.gristApiUrl}`, 'info');
+      } else {
+        localConfig.value.gristApiUrl = 'http://localhost:8484';
+        emit('status', `ℹ️ URL API Grist par défaut utilisée : ${localConfig.value.gristApiUrl}`, 'info');
+      }
+    } catch (err) {
+      console.warn('Impossible d\'inferer gristApiUrl:', err);
+    }
+  }
+
   if (!localConfig.value.tableId || localConfig.value.tableId === 'YOUR_TABLE_ID') {
     emit('status', '⚠️ Veuillez configurer votre Table ID Grist', 'error');
     return;
   }
-  
+
   emit('update:isLoading', true);
-  
+
   try {
     const client = new GristClient(localConfig.value);
-    
-    // Valider le token API
-    apiTokenValidation.value = await client.validateApiToken();
-    
+
+    if (localConfig.value.apiTokenGrist) {
+      apiTokenValidation.value = await client.validateApiToken();
+    } else {
+      apiTokenValidation.value = { valid: false, message: 'Aucun token fourni (document public ou local)', needsAuth: false };
+    }
+
     const isConnected = await client.testConnection();
-    
+
     if (isConnected) {
       connectionTested.value = true;
       emit('status', '✅ Connexion à Grist réussie!', 'success');
       emit('update:config', localConfig.value);
     } else {
-      emit('status', '❌ Impossible de se connecter à Grist. Vérifiez votre configuration.', 'error');
+      emit('status', '❌ Impossible de se connecter à Grist. Vérifiez votre configuration et la disponibilité du serveur.', 'error');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erreur inconnue';
+    console.error('testGristConnection error', error);
     emit('status', `❌ Erreur de connexion: ${message}`, 'error');
   } finally {
     emit('update:isLoading', false);
   }
 }
 
-// Marque la connexion comme non testée quand la config change
-watch(localConfig, () => {
+watch(localConfig, (newVal) => {
+  if (applyingProps.value) {
+    apiTokenValidation.value = null; 
+    return;
+  }
+
   connectionTested.value = false;
   apiTokenValidation.value = null;
-  // Update parent config when local config changes
-  emit('update:config', localConfig.value);
+
+  try {
+    const parentJson = JSON.stringify(props.config || {});
+    const localJson = JSON.stringify(newVal || {});
+    if (parentJson !== localJson) {
+      Promise.resolve().then(() => emit('update:config', newVal));
+    }
+  } catch (err) {
+    console.error('Erreur lors de la sérialisation de la config:', err);
+    emit('status', '⚠️ Erreur lors de la sérialisation de la configuration', 'error');
+    Promise.resolve().then(() => emit('update:config', newVal));
+  }
 }, { deep: true });
 </script>
 
@@ -146,7 +224,7 @@ watch(localConfig, () => {
   <div class="step-container">
     <div class="step-header">
       <h2 class="fr-h2">
-        <span class="step-icon">⚙️</span>
+        <span class="step-icon"></span>
         Étape 3 : Configuration Grist
       </h2>
       <p class="fr-text">
@@ -155,9 +233,7 @@ watch(localConfig, () => {
     </div>
 
     <div class="step-content">
-      <!-- Configuration Grist -->
       <DsfrFieldset legend="Informations de connexion Grist">
-        <!-- Option: Coller l'URL complète du document -->
         <DsfrInputGroup>
           <DsfrInput
             label="URL du document Grist (optionnel)"
@@ -210,12 +286,11 @@ watch(localConfig, () => {
           />
         </DsfrInputGroup>
 
-        <!-- Affichage des informations sur le token API -->
         <div v-if="localConfig.apiTokenGrist" class="fr-mb-3w api-token-info">
           <DsfrCallout title="🔐 Informations sur le token API">
             <div class="token-display">
               <strong>Token configuré :</strong> 
-              <code class="masked-token">{{ maskedApiToken }}</code>
+              <code class="fr-code masked-token">{{ maskedApiToken }}</code>
             </div>
             <div v-if="apiTokenValidation" class="token-validation fr-mt-2w">
               <DsfrBadge 
@@ -245,13 +320,12 @@ watch(localConfig, () => {
         </div>
       </DsfrFieldset>
 
-      <!-- Instructions -->
       <div class="fr-mt-4w">
         <DsfrCallout title="📖 Comment trouver ces informations ?">
           <ul class="fr-text--sm">
             <li>
               <strong>Document ID :</strong> Ouvrez votre document Grist, l'ID se trouve dans l'URL 
-              (ex: <code>https://docs.getgrist.com/doc/<strong>YOUR_DOC_ID</strong></code>)
+              (ex: <code class="fr-code">https://docs.getgrist.com/doc/<strong>YOUR_DOC_ID</strong></code>)
             </li>
             <li>
               <strong>Table ID :</strong> Le nom de votre table visible dans la barre latérale gauche de Grist
@@ -351,14 +425,6 @@ watch(localConfig, () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-code {
-  background: #f5f5f5;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.9em;
 }
 
 .fr-error-text {

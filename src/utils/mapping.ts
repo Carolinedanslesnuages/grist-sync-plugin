@@ -241,14 +241,18 @@ export function generateMappingsFromApiData(sampleData: any, defaultEnabled = tr
   if (!sampleData || typeof sampleData !== 'object') {
     return [];
   }
-  
+
   const apiFields = extractAllKeys(sampleData);
-  
+
+  const criticalColumns = new Map<string, string>([
+    ['id', 'api_id'], 
+    ['createdAt', 'createdAt'],
+    ['updatedAt', 'updatedAt']
+  ]);
+
   return apiFields.map(apiField => {
-    // Convertir le chemin API en nom de colonne Grist
-    // Ex: "user.profile.name" -> "user_profile_name"
-    const gristColumn = apiField.replace(/\./g, '_');
-    
+    const gristColumn = criticalColumns.get(apiField) || apiField.replace(/\./g, '_');
+
     return {
       apiField,
       gristColumn,

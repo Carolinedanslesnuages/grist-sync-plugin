@@ -10,40 +10,26 @@ import { analyzeError, formatErrorShort } from '../utils/errorHandler';
 import type { ErrorInfo } from '../utils/errorHandler';
 
 
-/**
- * Composant principal ApiToGrist
- * 
- * Permet de synchroniser des données depuis n'importe quelle API vers Grist
- * 
- * REFACTORED: L'authentification est maintenant gérée par le backend.
- * Le plugin ne demande plus de token à l'utilisateur, il utilise uniquement
- * l'URL du backend qui s'occupe de l'authentification de manière sécurisée.
- */
 
-// État du formulaire
-const backendUrl = ref(''); // REFACTORED: Renommé de apiUrl vers backendUrl pour plus de clarté
+const backendUrl = ref('');
 const isLoading = ref(false);
+const authToken = ref('');
 const statusMessage = ref('');
 const statusType = ref<'success' | 'error' | 'info'>('info');
 
-// Données de l'API
 const apiData = ref<any[]>([]);
 const sampleRecord = ref<Record<string, any> | undefined>(undefined);
 
-// Configuration du mapping
 const mappings = ref<FieldMapping[]>([
   { gristColumn: '', apiField: '' }
 ]);
 
-// Configuration Grist (éditable)
 const gristConfig = ref<GristConfig>({ ...defaultConfig });
 
-// Dernière erreur détaillée
+
 const lastError = ref<ErrorInfo | null>(null);
 
-/**
- * Affiche un message de statut
- */
+
 function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info') {
   statusMessage.value = message;
   statusType.value = type;
@@ -54,13 +40,6 @@ function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info'
   }, 5000);
 }
 
-/**
- * Récupère les données depuis le backend
- * 
- * REFACTORED: L'authentification avec l'API externe est désormais gérée par le backend.
- * Le plugin fait simplement une requête GET au backend qui retourne les données.
- * Aucun token n'est envoyé depuis le frontend.
- */
 async function fetchApiData() {
   if (!backendUrl.value) {
     showStatus('⚠️ Veuillez saisir l\'URL du backend', 'error');
@@ -72,10 +51,12 @@ async function fetchApiData() {
   lastError.value = null;
   
   try {
-    // REFACTORED: Requête simple sans authentification - le backend gère tout
     const headers: HeadersInit = {
       'Content-Type': 'application/json'
     };
+    if (authToken.value) {
+      headers['x-api-key'] = authToken.value;
+    }
     
     const response = await fetch(backendUrl.value, {
       method: 'GET',
@@ -88,7 +69,6 @@ async function fetchApiData() {
     
     const data = await response.json();
     
-    // Détecte si c'est un tableau ou un objet avec des données
     if (Array.isArray(data)) {
       apiData.value = data;
     } else if (data.data && Array.isArray(data.data)) {
@@ -98,7 +78,6 @@ async function fetchApiData() {
     } else if (data.items && Array.isArray(data.items)) {
       apiData.value = data.items;
     } else {
-      // Si ce n'est pas un tableau, on l'enveloppe
       apiData.value = [data];
     }
     
@@ -109,7 +88,6 @@ async function fetchApiData() {
       showStatus('⚠️ Aucune donnée trouvée dans la réponse de l\'API', 'error');
     }
   } catch (error) {
-    // Analyse détaillée de l'erreur
     const errorInfo = analyzeError(error, 'api_fetch');
     lastError.value = errorInfo;
     
@@ -125,9 +103,7 @@ async function fetchApiData() {
   }
 }
 
-/**
- * Synchronise les données vers Grist
- */
+
 async function syncToGrist() {
   if (apiData.value.length === 0) {
     showStatus('⚠️ Aucune donnée à synchroniser. Récupérez d\'abord les données de l\'API.', 'error');
@@ -155,7 +131,6 @@ async function syncToGrist() {
   statusMessage.value = '';
   
   try {
-    // Transforme les données selon le mapping
     const transformedData = transformRecords(apiData.value, validMappings);
     
     if (transformedData.length === 0) {
@@ -163,7 +138,6 @@ async function syncToGrist() {
       return;
     }
     
-    // Insère dans Grist
     const client = new GristClient(gristConfig.value);
     const result = await client.addRecords(transformedData);
     
@@ -179,9 +153,7 @@ async function syncToGrist() {
   }
 }
 
-/**
- * Teste la connexion à Grist
- */
+
 async function testGristConnection() {
   if (!gristConfig.value.docId || gristConfig.value.docId === 'YOUR_DOC_ID') {
     showStatus('⚠️ Veuillez configurer votre Document ID Grist', 'error');
@@ -206,7 +178,6 @@ async function testGristConnection() {
       showStatus('❌ Impossible de se connecter à Grist. Vérifiez votre configuration.', 'error');
     }
   } catch (error) {
-    // Analyse détaillée de l'erreur
     const errorInfo = analyzeError(error, 'grist_sync');
     lastError.value = errorInfo;
     
@@ -219,10 +190,8 @@ async function testGristConnection() {
   }
 }
 
-// Nombre total d'enregistrements
 const recordCount = computed(() => apiData.value.length);
 
-// Nombre de mappings valides
 const validMappingsCount = computed(() => getValidMappings(mappings.value).length);
 </script>
 
@@ -233,7 +202,6 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
       Synchronisez facilement vos données API vers Grist avec un mapping visuel
     </p>
 
-    <!-- Section Configuration Grist -->
     <DsfrFieldset legend="Configuration Grist">
       <DsfrInput
         label="Document ID *"
@@ -266,8 +234,6 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
       />
     </DsfrFieldset>
 
-    <!-- Section API Source -->
-    <!-- REFACTORED: Suppression du champ Token API - l'authentification est gérée par le backend -->
     <DsfrFieldset legend="Source de données (Backend)">
       <DsfrInput
         label="URL du backend *"
@@ -289,7 +255,6 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
         {{ recordCount }} enregistrement(s) chargé(s)
       </DsfrBadge>
       
-      <!-- Detailed Error Display -->
       <div v-if="lastError" class="fr-mt-4w">
         <DsfrAlert
           type="error"
@@ -306,20 +271,20 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
                 <li v-for="(solution, idx) in lastError.solutions" :key="idx">{{ solution }}</li>
               </ul>
               
-              <details v-if="lastError.technicalDetails" class="fr-mt-2w">
-                <summary class="fr-text--sm" style="cursor: pointer; color: #666;">
-                  🔧 Détails techniques
-                </summary>
-                <pre class="fr-text--xs fr-mt-1w" style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
-              </details>
+              <DsfrAccordion
+                v-if="lastError.technicalDetails"
+                title="🔧 Détails techniques"
+                :id="`technical-details-api-${Date.now()}`"
+                class="fr-mt-2w"
+              >
+                <pre class="fr-text--xs fr-mt-1w fr-code" style="overflow-x: auto;">{{ lastError.technicalDetails }}</pre>
+              </DsfrAccordion>
             </div>
           </template>
         </DsfrAlert>
       </div>
     </DsfrFieldset>
 
-    <!-- Section Aperçu des données récupérées -->
-    <!-- REFACTORED: Affichage des données dans un format lisible avec les styles DSFR -->
     <DsfrFieldset legend="Aperçu des données" v-if="apiData.length > 0">
       <DsfrNotice
         title="Données récupérées avec succès"
@@ -328,7 +293,6 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
         {{ recordCount }} enregistrement(s) disponible(s) pour la synchronisation
       </DsfrNotice>
       
-      <!-- Affichage du premier enregistrement comme exemple -->
       <div v-if="sampleRecord" class="fr-mt-2w">
         <p class="fr-text--bold">Exemple de données (premier enregistrement) :</p>
         <div class="fr-table fr-table--bordered">
@@ -350,7 +314,6 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
       </div>
     </DsfrFieldset>
 
-    <!-- Section Mapping -->
     <DsfrFieldset legend="Mapping colonne Grist / champ API" v-if="apiData.length > 0">
       <MappingTable v-model="mappings" :sample-data="sampleRecord" />
       <DsfrBadge v-if="validMappingsCount > 0" type="success">
@@ -358,7 +321,6 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
       </DsfrBadge>
     </DsfrFieldset>
 
-    <!-- Message de statut -->
     <DsfrAlert
       v-if="statusMessage"
       :type="statusType"
@@ -367,7 +329,6 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
       :small="true"
     />
 
-    <!-- Bouton de synchronisation -->
     <div class="fr-mt-4w" v-if="apiData.length > 0">
       <DsfrButton
         icon="ri-upload-cloud-line"
