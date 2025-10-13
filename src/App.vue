@@ -7,11 +7,3 @@ import ApiToGrist from './components/ApiToGrist.vue'
     <ApiToGrist />
   </div>
 </template>
-
-<style scoped>
-.app-container {
-  min-height: 100vh;
-  background: linear-gradient(to bottom, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 20px 0;
-}
-</style>
