@@ -15,6 +15,9 @@ dist-ssr
 # Test data
 public/test-data.json
 
+# Test coverage
+coverage
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

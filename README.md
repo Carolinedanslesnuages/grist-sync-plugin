@@ -48,6 +48,23 @@ npm run build
 
 Les fichiers optimisés seront générés dans le dossier `dist/`.
 
+### Tests
+
+Le projet dispose de tests unitaires et d'intégration complets :
+
+```bash
+# Exécuter tous les tests
+npm test
+
+# Exécuter les tests en mode watch
+npm test -- --watch
+
+# Générer un rapport de couverture
+npm run test:coverage
+```
+
+Pour plus de détails sur les tests, consultez [TESTS.md](./TESTS.md).
+
 ## 📖 Guide d'utilisation
 
 ### Étape 1 : Configuration Grist
