@@ -28,10 +28,23 @@ const sampleRecord = ref<Record<string, any> | null>(null);
 const lastError = ref<ErrorInfo | null>(null);
 
 /**
+ * Valide manuellement et émet l'événement complete
+ */
+function manualComplete() {
+  if (previewData.value && previewData.value.length > 0) {
+    console.log('[Step1ApiSource] manualComplete appelé - Émission @complete manuel');
+    emit('complete', previewData.value, localUrl.value);
+  }
+}
+
+/**
  * Récupère les données depuis le backend
  */
 async function fetchApiData() {
+  console.log('[Step1ApiSource] fetchApiData appelé', { url: localUrl.value });
+  
   if (!localUrl.value) {
+    console.log('[Step1ApiSource] URL vide, émission d\'un status error');
     emit('status', '⚠️ Veuillez saisir l\'URL du backend', 'error');
     return;
   }
@@ -41,6 +54,7 @@ async function fetchApiData() {
   sampleRecord.value = null;
   lastError.value = null;
   
+  console.log('[Step1ApiSource] Début du chargement, émission update:isLoading true');
   emit('update:isLoading', true);
   
   try {
@@ -48,6 +62,7 @@ async function fetchApiData() {
       'Content-Type': 'application/json'
     };
     
+    console.log('[Step1ApiSource] Appel fetch à l\'URL:', localUrl.value);
     const response = await fetch(localUrl.value, {
       method: 'GET',
       headers
@@ -58,6 +73,7 @@ async function fetchApiData() {
     }
     
     const data = await response.json();
+    console.log('[Step1ApiSource] Données reçues:', { type: typeof data, isArray: Array.isArray(data) });
     
     // Détecte si c'est un tableau ou un objet avec des données
     let apiData: any[] = [];
@@ -73,16 +89,36 @@ async function fetchApiData() {
       apiData = [data];
     }
     
+    console.log('[Step1ApiSource] Données extraites:', { count: apiData.length });
+    
     if (apiData.length > 0) {
       // Store data locally for preview
       previewData.value = apiData;
       sampleRecord.value = apiData[0];
+      
+      console.log('[Step1ApiSource] ✅ Données valides, émission des événements');
+      console.log('[Step1ApiSource] Émission update:backendUrl:', localUrl.value);
       emit('update:backendUrl', localUrl.value);
+      
+      console.log('[Step1ApiSource] Émission status success');
       emit('status', `✅ ${apiData.length} enregistrement(s) récupéré(s) avec succès`, 'success');
+      
+      // Attendre un petit moment pour que le status soit bien affiché
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('[Step1ApiSource] 🎯 Émission @complete avec', {
+        dataCount: apiData.length,
+        url: localUrl.value,
+        sampleKeys: Object.keys(apiData[0] || {})
+      });
+      emit('complete', apiData, localUrl.value);
     } else {
+      console.log('[Step1ApiSource] ⚠️ Aucune donnée trouvée');
       emit('status', '⚠️ Aucune donnée trouvée dans la réponse de l\'API', 'error');
     }
   } catch (error) {
+    console.error('[Step1ApiSource] ❌ Erreur lors de la récupération:', error);
+    
     // Analyse détaillée de l'erreur
     const errorInfo = analyzeError(error, 'api_fetch');
     lastError.value = errorInfo;
@@ -93,6 +129,7 @@ async function fetchApiData() {
     
     console.error('Erreur détaillée:', errorInfo);
   } finally {
+    console.log('[Step1ApiSource] Fin du chargement, émission update:isLoading false');
     emit('update:isLoading', false);
   }
 }
@@ -130,6 +167,17 @@ async function fetchApiData() {
           :loading="isLoading"
           @click="fetchApiData"
           size="lg"
+        />
+      </div>
+
+      <!-- Bouton de validation manuelle si les données sont déjà chargées -->
+      <div v-if="previewData && previewData.length > 0" class="fr-mt-2w">
+        <DsfrButton
+          label="✅ Valider et passer à l'étape suivante"
+          icon="ri-arrow-right-line"
+          icon-right
+          @click="manualComplete"
+          secondary
         />
       </div>
 
