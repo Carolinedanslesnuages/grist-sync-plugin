@@ -143,7 +143,9 @@ async function syncToGrist() {
     
     addLog(`❌ ${errorInfo.title}`, 'error');
     addLog(`📋 ${errorInfo.explanation}`, 'error');
-    addLog(`💡 Solution: ${errorInfo.solutions[0]}`, 'error');
+    if (errorInfo.solutions && errorInfo.solutions.length > 0) {
+      addLog(`💡 Solution: ${errorInfo.solutions[0]}`, 'error');
+    }
     
     const message = error instanceof Error ? error.message : 'Erreur inconnue';
     emit('status', `❌ Erreur lors de la synchronisation: ${message}`, 'error');

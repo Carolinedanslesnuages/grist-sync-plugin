@@ -298,5 +298,8 @@ export function formatErrorForLog(errorInfo: ErrorInfo): string {
  * @returns Message court
  */
 export function formatErrorShort(errorInfo: ErrorInfo): string {
-  return `${errorInfo.message} - ${errorInfo.solutions[0]}`;
+  const firstSolution = errorInfo.solutions && errorInfo.solutions.length > 0 
+    ? errorInfo.solutions[0] 
+    : 'Consultez les détails de l\'erreur';
+  return `${errorInfo.message} - ${firstSolution}`;
 }

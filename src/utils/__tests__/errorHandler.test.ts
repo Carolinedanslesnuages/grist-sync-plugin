@@ -309,4 +309,34 @@ describe('formatErrorShort', () => {
     expect(result).toContain('First solution');
     expect(result).not.toContain('Second solution');
   });
+
+  it('devrait gérer un tableau de solutions vide', () => {
+    const errorInfo: ErrorInfo = {
+      type: 'unknown',
+      title: 'Erreur',
+      message: 'Une erreur est survenue',
+      explanation: 'Explication',
+      solutions: []
+    };
+
+    const result = formatErrorShort(errorInfo);
+
+    expect(result).toContain('Une erreur est survenue');
+    expect(result).toContain('Consultez les détails de l\'erreur');
+  });
+
+  it('devrait gérer un tableau de solutions undefined', () => {
+    const errorInfo: ErrorInfo = {
+      type: 'unknown',
+      title: 'Erreur',
+      message: 'Une erreur est survenue',
+      explanation: 'Explication',
+      solutions: undefined as any
+    };
+
+    const result = formatErrorShort(errorInfo);
+
+    expect(result).toContain('Une erreur est survenue');
+    expect(result).toContain('Consultez les détails de l\'erreur');
+  });
 });

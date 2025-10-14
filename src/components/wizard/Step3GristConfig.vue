@@ -129,7 +129,7 @@ function handleUrlPaste() {
       } else if (segments.length >= 1) {
         // If first segment looks like an ID (alphanumeric, length ~ 10+), take it
         const candidate = segments[0];
-        if (/^[A-Za-z0-9_-]{6,}$/.test(candidate)) {
+        if (candidate && /^[A-Za-z0-9_-]{6,}$/.test(candidate)) {
           extractedDocId = candidate;
         } else {
           // Otherwise try to find a segment that looks like an ID elsewhere (common heuristic)

@@ -208,10 +208,15 @@ export class GristClient {
       // Analyse l'erreur avec notre gestionnaire d'erreurs
       const errorInfo = analyzeError(error, 'grist_sync');
       this.log(`${errorInfo.title}: ${errorInfo.message}`, 'error');
-      this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      if (errorInfo.solutions && errorInfo.solutions.length > 0) {
+        this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      }
       
       if (error instanceof Error) {
-        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
+        const firstSolution = errorInfo.solutions && errorInfo.solutions.length > 0 
+          ? errorInfo.solutions[0] 
+          : 'Consultez les détails de l\'erreur';
+        throw new Error(`${errorInfo.message} - ${firstSolution}`);
       }
       throw error;
     }
@@ -248,7 +253,10 @@ export class GristClient {
       const errorInfo = analyzeError(error, 'grist_sync');
       
       if (error instanceof Error) {
-        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
+        const firstSolution = errorInfo.solutions && errorInfo.solutions.length > 0 
+          ? errorInfo.solutions[0] 
+          : 'Consultez les détails de l\'erreur';
+        throw new Error(`${errorInfo.message} - ${firstSolution}`);
       }
       throw error;
     }
@@ -282,7 +290,10 @@ export class GristClient {
       const errorInfo = analyzeError(error, 'grist_sync');
       
       if (error instanceof Error) {
-        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
+        const firstSolution = errorInfo.solutions && errorInfo.solutions.length > 0 
+          ? errorInfo.solutions[0] 
+          : 'Consultez les détails de l\'erreur';
+        throw new Error(`${errorInfo.message} - ${firstSolution}`);
       }
       throw error;
     }
@@ -331,10 +342,15 @@ export class GristClient {
       // Analyse l'erreur avec notre gestionnaire d'erreurs
       const errorInfo = analyzeError(error, 'grist_sync');
       this.log(`${errorInfo.title}: ${errorInfo.message}`, 'error');
-      this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      if (errorInfo.solutions && errorInfo.solutions.length > 0) {
+        this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      }
       
       if (error instanceof Error) {
-        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
+        const firstSolution = errorInfo.solutions && errorInfo.solutions.length > 0 
+          ? errorInfo.solutions[0] 
+          : 'Consultez les détails de l\'erreur';
+        throw new Error(`${errorInfo.message} - ${firstSolution}`);
       }
       throw error;
     }
