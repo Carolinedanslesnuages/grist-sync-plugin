@@ -170,8 +170,6 @@ function handleUrlPaste() {
  * Teste la connexion à Grist et valide le token API
  */
 async function testGristConnection() {
-  console.log('testGristConnection invoked', { docId: localConfig.value.docId, tableId: localConfig.value.tableId, gristApiUrl: localConfig.value.gristApiUrl, documentUrlInput: documentUrlInput.value });
-
   if (!localConfig.value.docId || localConfig.value.docId === 'YOUR_DOC_ID') {
     emit('status', '⚠️ Veuillez configurer votre Document ID Grist', 'error');
     return;
