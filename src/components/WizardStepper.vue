@@ -110,6 +110,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="wizard-container">
     <div class="fr-container fr-py-4w">
+      <p>
+        <DsfrTag 
+          label="Beta"
+          class="fr-mb-1w tag-success"
+          title="Cette fonctionnalité est en version Beta. Veuillez nous faire part de vos retours."
+        />
+      </p>
       <h1 class="fr-h1">Assistant de Synchronisation Grist</h1>
       <p class="fr-text--lead">
         Synchronisez facilement vos données API vers Grist en 4 étapes
@@ -195,6 +202,11 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   background: var(--background-default-grey);
 }
+
+.tag-success {
+  background-color: var(--background-alt-green-bourgeon-active);
+}
+
 .wizard-content {
   background: var(--background-default-grey-hover);
   border-radius: 0.5rem;
