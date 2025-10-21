@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
       </p>
       <h1 class="fr-h1">Assistant de Synchronisation Grist</h1>
       <p class="fr-text--lead">
-        Synchronisez facilement vos données API vers Grist en 4 étapes
+        Synchronisez facilement vos données API vers Grist en 5 étapes
       </p> 
     </div>
 

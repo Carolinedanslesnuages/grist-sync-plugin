@@ -1,8 +1,20 @@
 # grist-sync-plugin
 
-> **Synchronisez facilement vos données API vers Grist.**
+> **Synchronisez facilement vos données API vers Grist et exportez-les vers GitHub.**
 
-Ce plugin permet de transférer des données depuis une API vers la plateforme [Grist](https://www.getgrist.com).
+Ce plugin permet de transférer des données depuis une API vers la plateforme [Grist](https://www.getgrist.com), et d'exporter ensuite ces données vers un dépôt GitHub via Pull Request.
+
+---
+
+## ✨ Fonctionnalités
+
+- 🔄 **Synchronisation API → Grist** : Importez vos données depuis une API REST vers Grist
+- 🔗 **Mapping de champs** : Configurez la correspondance entre les champs API et les colonnes Grist
+- 📊 **Export vers GitHub** : Exportez vos données Grist vers GitHub via Pull Request (JSON/CSV)
+- 🔍 **Logs détaillés** : Suivez chaque étape de la synchronisation en temps réel
+- ✅ **Gestion d'erreurs** : Messages d'erreur clairs et solutions recommandées
+
+Pour plus de détails sur la synchronisation vers GitHub, consultez [GITHUB_SYNC.md](./GITHUB_SYNC.md).
 
 ---
 
