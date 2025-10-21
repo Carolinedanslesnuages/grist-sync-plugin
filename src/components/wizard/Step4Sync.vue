@@ -119,23 +119,47 @@ async function syncToGrist() {
     }
     addLog(`📋 ${requiredColumns.size} colonne(s) détectée(s): ${Array.from(requiredColumns).join(', ')}`, 'info');
     
-    // Insère dans Grist (avec création automatique des colonnes si activée)
-    addLog('📤 Envoi vers Grist...', 'info');
+    // Affiche le mode de synchronisation
+    const syncMode = props.gristConfig.syncMode || 'upsert';
+    const uniqueKeyField = props.gristConfig.uniqueKeyField || 'id';
+    addLog(`🔧 Mode: ${syncMode}, Clé unique: ${uniqueKeyField}`, 'info');
+    
+    if (props.gristConfig.dryRun) {
+      addLog('🔍 Mode simulation (dry-run) activé - Aucune modification ne sera appliquée', 'info');
+    }
+    
+    // Insère/met à jour dans Grist selon le mode configuré
+    addLog('📤 Synchronisation vers Grist...', 'info');
     
     if (props.gristConfig.autoCreateColumns !== false) {
       addLog('🔧 Vérification et création automatique des colonnes manquantes...', 'info');
     }
     
     const client = new GristClient(props.gristConfig, addLog);
-    const result = await client.addRecords(transformedData);
+    const result = await client.syncRecords(transformedData);
     
-    addLog(`✅ ${result.records.length} enregistrement(s) synchronisé(s) avec succès!`, 'success');
+    if (props.gristConfig.dryRun) {
+      addLog(`🔍 Simulation terminée:`, 'info');
+      addLog(`  ➕ ${result.inserted} enregistrement(s) seraient insérés`, 'info');
+      addLog(`  🔄 ${result.updated} enregistrement(s) seraient mis à jour`, 'info');
+      addLog(`💡 Désactivez le mode dry-run pour appliquer les changements`, 'info');
+    } else {
+      addLog(`✅ Synchronisation réussie:`, 'success');
+      addLog(`  ➕ ${result.inserted} enregistrement(s) insérés`, 'success');
+      addLog(`  🔄 ${result.updated} enregistrement(s) mis à jour`, 'success');
+    }
+    
     addLog(`📋 Document Grist: ${props.gristConfig.docId}`, 'info');
     addLog(`📊 Table: ${props.gristConfig.tableId}`, 'info');
     
     syncCompleted.value = true;
     syncSuccess.value = true;
-    emit('status', `✅ ${result.records.length} enregistrement(s) synchronisé(s) avec succès!`, 'success');
+    
+    if (props.gristConfig.dryRun) {
+      emit('status', `🔍 Simulation: ${result.inserted} insertion(s), ${result.updated} mise(s) à jour`, 'info');
+    } else {
+      emit('status', `✅ ${result.inserted + result.updated} enregistrement(s) synchronisé(s)!`, 'success');
+    }
   } catch (error) {
     // Analyse détaillée de l'erreur
     const errorInfo = analyzeError(error, 'grist_sync');

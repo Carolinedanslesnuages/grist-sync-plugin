@@ -396,7 +396,7 @@ describe('generateMappingsFromApiData', () => {
     const result = generateMappingsFromApiData(sampleData);
 
     expect(result).toEqual([
-      { apiField: 'id', gristColumn: 'id', enabled: true },
+      { apiField: 'id', gristColumn: 'api_id', enabled: true },
       { apiField: 'name', gristColumn: 'name', enabled: true },
       { apiField: 'email', gristColumn: 'email', enabled: true }
     ]);

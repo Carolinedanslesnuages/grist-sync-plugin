@@ -18,7 +18,13 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const localConfig = ref<GristConfig>({ ...props.config });
+const localConfig = ref<GristConfig>({ 
+  ...props.config,
+  syncMode: props.config.syncMode || 'upsert',
+  uniqueKeyField: props.config.uniqueKeyField || 'id',
+  autoCreateColumns: props.config.autoCreateColumns !== false,
+  dryRun: props.config.dryRun || false
+});
 const isLoading = computed(() => props.isLoading);
 const connectionTested = ref(false);
 const documentUrlInput = ref('');
@@ -301,7 +307,66 @@ watch(localConfig, (newVal) => {
             </div>
           </DsfrCallout>
         </div>
+      </DsfrFieldset>
 
+      <DsfrFieldset legend="Options de synchronisation" class="fr-mt-4w">
+        <DsfrInputGroup>
+          <DsfrSelect
+            label="Mode de synchronisation"
+            v-model="localConfig.syncMode"
+            :options="[
+              { value: 'upsert', text: 'Upsert (insérer ou mettre à jour)' },
+              { value: 'insert', text: 'Insert (insérer uniquement)' },
+              { value: 'update', text: 'Update (mettre à jour uniquement)' }
+            ]"
+            hint="Détermine comment les données sont synchronisées dans Grist"
+          />
+        </DsfrInputGroup>
+
+        <DsfrInputGroup>
+          <DsfrInput
+            label="Champ clé unique"
+            v-model="localConfig.uniqueKeyField"
+            placeholder="id"
+            hint="Nom du champ utilisé pour identifier les enregistrements (ex: id, email)"
+          />
+        </DsfrInputGroup>
+
+        <DsfrInputGroup>
+          <DsfrCheckbox
+            v-model="localConfig.autoCreateColumns"
+            label="Créer automatiquement les colonnes manquantes"
+            hint="Si activé, les colonnes présentes dans les données API mais absentes dans Grist seront créées automatiquement"
+          />
+        </DsfrInputGroup>
+
+        <DsfrInputGroup>
+          <DsfrCheckbox
+            v-model="localConfig.dryRun"
+            label="Mode simulation (dry-run)"
+            hint="Si activé, la synchronisation sera simulée sans appliquer les changements"
+          />
+        </DsfrInputGroup>
+
+        <div class="fr-mt-3w">
+          <DsfrCallout type="info" title="ℹ️ À propos des modes de synchronisation">
+            <ul class="fr-text--sm">
+              <li>
+                <strong>Upsert :</strong> Insère les nouveaux enregistrements et met à jour les existants selon la clé unique. 
+                Les colonnes personnalisées dans Grist sont préservées.
+              </li>
+              <li>
+                <strong>Insert :</strong> Insère uniquement de nouveaux enregistrements, sans modifier les existants.
+              </li>
+              <li>
+                <strong>Update :</strong> Met à jour uniquement les enregistrements existants, sans en créer de nouveaux.
+              </li>
+            </ul>
+          </DsfrCallout>
+        </div>
+      </DsfrFieldset>
+
+      <DsfrFieldset legend="Test de connexion" class="fr-mt-4w">
         <div class="fr-mt-4w">
           <DsfrButton
             label="Tester la connexion"
