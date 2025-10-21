@@ -4,6 +4,7 @@ import Step1ApiSource from './wizard/Step1ApiSource.vue'
 import Step2DataMapping from './wizard/Step2DataMapping.vue'
 import Step3GristConfig from './wizard/Step3GristConfig.vue'
 import Step4Sync from './wizard/Step4Sync.vue'
+import Step5GitHubSync from './wizard/Step5GitHubSync.vue'
 import type { FieldMapping } from '../utils/mapping'
 import type { GristConfig } from '../config'
 import { defaultConfig } from '../config'
@@ -14,6 +15,7 @@ const steps = [
   'Mapping des champs',
   'Configuration Grist',
   'Synchronisation',
+  'Export vers GitHub',
 ]
 const totalSteps = steps.length
 const currentStep = ref(1)
@@ -23,7 +25,8 @@ const apiData = ref<ApiRecord[]>([])
 const sampleRecord = ref<ApiRecord | undefined>(undefined)
 const mappings = ref<FieldMapping[]>([{ gristColumn: '', apiField: '' }])
 const gristConfig = ref<GristConfig>({ ...defaultConfig })
-const isStep4Complete = ref(false) 
+const isStep4Complete = ref(false)
+const isStep5Complete = ref(false)
 const isLoading = ref(false)
 const statusMessage = ref<string>('')
 const statusType = ref<'success' | 'error' | 'info'>('info')
@@ -32,6 +35,7 @@ const MESSAGES = {
   fetchSuccess: 'Données récupérées avec succès',
   mappingSaved: 'Mapping configuré avec succès',
   gristValidated: 'Configuration Grist validée',
+  syncCompleted: 'Synchronisation vers Grist réussie',
 }
 
 const isStep1Complete = computed(() => apiData.value.length > 0)
@@ -43,7 +47,7 @@ const isStep3Complete = computed(() =>
   gristConfig.value.tableId !== 'YOUR_TABLE_ID'
 )
 
-const stepCompletion = [null, isStep1Complete, isStep2Complete, isStep3Complete, isStep4Complete]
+const stepCompletion = [null, isStep1Complete, isStep2Complete, isStep3Complete, isStep4Complete, isStep5Complete]
 const canGoNext = computed(() => stepCompletion[currentStep.value]?.value ?? false)
 
 const isFirstStep = computed(() => currentStep.value === 1)
@@ -81,6 +85,7 @@ function goToStep(direction: 'next' | 'prev') {
     if (!canGoNext.value) return
     if (currentStep.value === 2) showStatus(MESSAGES.mappingSaved, 'success')
     else if (currentStep.value === 3) showStatus(MESSAGES.gristValidated, 'success')
+    else if (currentStep.value === 4) showStatus(MESSAGES.syncCompleted, 'success')
     currentStep.value++
   } else if (direction === 'prev' && currentStep.value > 1) {
     currentStep.value--
@@ -97,6 +102,7 @@ function restartWizard() {
   statusMessage.value = ''
   statusType.value = 'info'
   isStep4Complete.value = false
+  isStep5Complete.value = false
 }
 
 onBeforeUnmount(() => {
@@ -164,6 +170,12 @@ onBeforeUnmount(() => {
           v-else-if="currentStep === 4"
           :apiData="apiData"
           :mappings="mappings"
+          :gristConfig="gristConfig"
+          v-model:isLoading="isLoading"
+          @status="showStatus"
+        />
+        <Step5GitHubSync
+          v-else-if="currentStep === 5"
           :gristConfig="gristConfig"
           v-model:isLoading="isLoading"
           @status="showStatus"
