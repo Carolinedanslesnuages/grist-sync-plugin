@@ -26,6 +26,9 @@ coverage
 # Grist Docker data
 grist-data
 
+# Config files with secrets
+config/grist-sync.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

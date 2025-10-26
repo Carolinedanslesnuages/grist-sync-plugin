@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Example mapping configuration for Grist sync",
+  "grist": {
+    "docId": "YOUR_DOC_ID",
+    "tableId": "YOUR_TABLE_ID",
+    "gristApiUrl": "https://docs.getgrist.com"
+  },
+  "source": {
+    "type": "rest",
+    "url": "https://api.example.com/data",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer ${API_TOKEN}"
+    }
+  },
+  "mapping": {
+    "id": "id",
+    "name": "name",
+    "email": "email",
+    "created_at": "createdAt"
+  },
+  "sync": {
+    "mode": "upsert",
+    "uniqueKey": "id",
+    "schedule": "0 */6 * * *",
+    "autoCreateColumns": true
+  }
+}
