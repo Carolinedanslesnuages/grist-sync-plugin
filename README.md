@@ -22,12 +22,22 @@ npm install
 
 Pour démarrer le projet en mode développement :
 
-ou
 ```bash
 npm run dev
 ```
 
-*(Selon la configuration du projet)*
+### 🐳 Tester avec Docker (Grist local)
+
+Pour tester le plugin avec une instance Grist locale via Docker Compose :
+
+```bash
+docker-compose up -d
+```
+
+Grist sera accessible sur http://localhost:8484
+
+📖 **Consultez le [guide de configuration Docker](docs/DOCKER_SETUP.md)** pour plus de détails.
+
 
 ### 📁 Structure du projet
 
