@@ -21,11 +21,10 @@ const emit = defineEmits<Emits>();
 
 const localUrl = ref(props.backendUrl);
 const authToken = ref('');
+const authHeaderName = ref('x-api-key');
 const previewData = ref<any[] | null>(null);
 const sampleRecord = ref<Record<string, any> | null>(null);
 const lastError = ref<ErrorInfo | null>(null);
-
-// headerName is now hardcoded in fetchApiData; input removed from template
 
 async function fetchApiData() {
   if (!localUrl.value) {
@@ -43,11 +42,12 @@ async function fetchApiData() {
     const headers: HeadersInit = {
       'Content-Type': 'application/json'
     };
-    if (authToken.value) {
-      headers['x-refapp-token'] = authToken.value;
+    if (authToken.value && authHeaderName.value) {
+      headers[authHeaderName.value] = authToken.value;
     }
-    console.log('Token envoyé au backend:', authToken.value);
-console.log('URL backend:', localUrl.value);
+    console.log('Header d\'authentification:', authHeaderName.value);
+    console.log('Token envoyé au backend:', authToken.value ? '***' : '(aucun)');
+    console.log('URL backend:', localUrl.value);
     const response = await fetch(localUrl.value, {
       method: 'GET',
       headers
@@ -122,12 +122,21 @@ console.log('URL backend:', localUrl.value);
           @keyup.enter="fetchApiData"
         />
         <DsfrInput
+          label="Nom du header d'authentification"
+          label-visible
+          v-model="authHeaderName"
+          type="text"
+          placeholder="x-api-key"
+          hint="Le nom du header HTTP qui contiendra le token (ex: x-api-key, Authorization, x-auth-token)."
+          @keyup.enter="fetchApiData"
+        />
+        <DsfrInput
           label="Token d'authentification (facultatif)"
           label-visible
           v-model="authToken"
-          type="text"
+          type="password"
           placeholder="Entrez votre token si nécessaire"
-          hint="Ce token sera ajouté dans l'en-tête 'x-refapp-token' si fourni."
+          :hint="`Ce token sera envoyé dans le header '${authHeaderName}' si fourni.`"
           @keyup.enter="fetchApiData"
         />
       </DsfrInputGroup>
