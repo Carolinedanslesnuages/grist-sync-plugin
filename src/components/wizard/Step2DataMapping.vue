@@ -62,11 +62,15 @@ async function fetchExistingColumns() {
 }
 
 // Charge les colonnes existantes quand la config Grist change
-watch(() => props.gristConfig, () => {
-  if (props.gristConfig) {
-    fetchExistingColumns();
-  }
-}, { immediate: true, deep: true });
+watch(
+  () => [props.gristConfig?.docId, props.gristConfig?.tableId, props.gristConfig?.gristApiUrl],
+  () => {
+    if (props.gristConfig?.docId && props.gristConfig?.tableId && props.gristConfig?.gristApiUrl) {
+      fetchExistingColumns();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <template>

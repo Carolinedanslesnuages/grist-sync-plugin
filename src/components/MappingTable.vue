@@ -91,9 +91,12 @@ function autoGenerateMappings() {
       }
       
       // Correspondance partielle (cherche un nom similaire)
-      if (props.existingGristColumns) {
+      // Seulement pour des noms suffisamment longs pour éviter les faux positifs
+      if (props.existingGristColumns && suggestedNameLower.length >= 3) {
         const partialMatch = props.existingGristColumns.find(existingCol => {
           const existingLower = existingCol.toLowerCase();
+          // Vérifie que les noms ont une longueur minimale pour la correspondance partielle
+          if (existingLower.length < 3) return false;
           return existingLower.includes(suggestedNameLower) || 
                  suggestedNameLower.includes(existingLower);
         });
