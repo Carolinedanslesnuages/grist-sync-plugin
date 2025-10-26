@@ -20,6 +20,12 @@ export interface GristConfig {
   
   /** Créer automatiquement les colonnes manquantes (par défaut: true) */
   autoCreateColumns?: boolean;
+  
+  /** Colonne unique pour identifier les enregistrements existants (ex: 'api_id', 'Email') */
+  uniqueKey?: string;
+  
+  /** Mode de synchronisation: 'add' (ajouter uniquement), 'update' (mettre à jour), 'upsert' (ajouter ou mettre à jour) */
+  syncMode?: 'add' | 'update' | 'upsert';
 }
 
 /**
@@ -31,5 +37,7 @@ export const defaultConfig: GristConfig = {
   tableId: 'YOUR_TABLE_ID',
   apiTokenGrist: undefined, // Optionnel: ajoutez votre token ici
   gristApiUrl: 'https://docs.getgrist.com',
-  autoCreateColumns: true // Par défaut, créer automatiquement les colonnes manquantes
+  autoCreateColumns: true, // Par défaut, créer automatiquement les colonnes manquantes
+  uniqueKey: undefined, // Optionnel: colonne unique pour identifier les enregistrements existants
+  syncMode: 'add' // Par défaut, mode 'add' (ajouter uniquement les nouveaux enregistrements)
 };
