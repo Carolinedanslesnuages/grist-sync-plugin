@@ -32,6 +32,7 @@ const syncSuccess = ref(false);
 const lastSyncError = ref<ErrorInfo | null>(null);
 const dryRunResult = ref<DryRunResult | null>(null);
 const showDryRunDetails = ref(false);
+const componentId = ref(`sync-${Math.random().toString(36).substring(2, 9)}`);
 
 const recordCount = computed(() => props.apiData.length);
 const validMappingsCount = computed(() => getValidMappings(props.mappings).length);
@@ -328,7 +329,7 @@ async function syncToGrist() {
               <div v-if="dryRunResult.toAdd.length > 0" class="fr-mt-2w">
                 <DsfrAccordion
                   title="➕ Enregistrements à ajouter"
-                  :id="`dry-run-add-${Date.now()}`"
+                  :id="`${componentId}-add`"
                 >
                   <div class="records-list">
                     <div v-for="(record, idx) in dryRunResult.toAdd.slice(0, 5)" :key="idx" class="record-item">
@@ -345,7 +346,7 @@ async function syncToGrist() {
               <div v-if="dryRunResult.toUpdate.length > 0" class="fr-mt-2w">
                 <DsfrAccordion
                   title="🔄 Enregistrements à mettre à jour"
-                  :id="`dry-run-update-${Date.now()}`"
+                  :id="`${componentId}-update`"
                 >
                   <div class="records-list">
                     <div v-for="(record, idx) in dryRunResult.toUpdate.slice(0, 5)" :key="idx" class="record-item">
