@@ -4,6 +4,12 @@
 
 Ce plugin permet de transférer des données depuis une API vers la plateforme [Grist](https://www.getgrist.com).
 
+## ✨ Nouveauté : Auto-détection de la configuration
+
+Le plugin peut désormais **détecter automatiquement** l'URL et le token d'API Grist lorsqu'il est utilisé comme Custom Widget dans Grist ! Plus besoin de saisir manuellement ces informations.
+
+📖 **Consultez le [guide d'auto-détection](docs/AUTO_DETECTION.md)** pour plus de détails.
+
 ---
 
 ## 🚀 Pour les développeurs
