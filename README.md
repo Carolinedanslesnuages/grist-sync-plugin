@@ -44,6 +44,28 @@ Grist sera accessible sur http://localhost:8484
 - **Interface utilisateur** : [Vue.js](https://vuejs.org/)
 - **Sources principales** : dossier `src/`
 
+### 🧪 Tests
+
+Le projet dispose de deux types de tests :
+
+#### Tests unitaires (Vitest)
+
+```bash
+npm run test              # Exécution des tests
+npm run test:ui          # Interface graphique
+npm run test:coverage    # Rapport de couverture
+```
+
+#### Tests E2E (Playwright)
+
+```bash
+npm run test:e2e         # Exécution des tests E2E
+npm run test:e2e:ui      # Interface graphique Playwright
+npm run test:e2e:debug   # Mode debug
+```
+
+📖 **Consultez le [guide des tests Playwright](docs/PLAYWRIGHT_TESTS.md)** pour plus de détails.
+
 ### 🤝 Contribution
 
 Les contributions sont les bienvenues !  
