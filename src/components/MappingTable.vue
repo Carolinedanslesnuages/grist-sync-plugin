@@ -14,6 +14,8 @@ interface Props {
   modelValue: FieldMapping[];
   /** Exemple de données API pour faciliter le mapping */
   sampleData?: Record<string, any>;
+  /** Liste des colonnes existantes dans Grist */
+  existingGristColumns?: string[];
 }
 
 interface Emits {
@@ -63,11 +65,49 @@ function updateMapping(index: number, field: 'gristColumn' | 'apiField' | 'enabl
 
 /**
  * Génère automatiquement les mappings à partir des données d'exemple
+ * Tente de mapper vers les colonnes existantes de Grist quand c'est possible
  */
 function autoGenerateMappings() {
   if (!props.sampleData) return;
   
   const generatedMappings = generateMappingsFromApiData(props.sampleData);
+  
+  // Si on a des colonnes existantes, essaie de faire correspondre automatiquement
+  if (props.existingGristColumns && props.existingGristColumns.length > 0) {
+    const existingColumnsLower = props.existingGristColumns.map(col => col.toLowerCase());
+    
+    // Pour chaque mapping généré, vérifie s'il existe une colonne similaire
+    generatedMappings.forEach(mapping => {
+      const suggestedNameLower = mapping.gristColumn.toLowerCase();
+      
+      // Correspondance exacte (insensible à la casse)
+      const exactMatchIndex = existingColumnsLower.indexOf(suggestedNameLower);
+      if (exactMatchIndex !== -1 && props.existingGristColumns) {
+        const matchedColumn = props.existingGristColumns[exactMatchIndex];
+        if (matchedColumn) {
+          mapping.gristColumn = matchedColumn;
+          return;
+        }
+      }
+      
+      // Correspondance partielle (cherche un nom similaire)
+      // Seulement pour des noms suffisamment longs pour éviter les faux positifs
+      if (props.existingGristColumns && suggestedNameLower.length >= 3) {
+        const partialMatch = props.existingGristColumns.find(existingCol => {
+          const existingLower = existingCol.toLowerCase();
+          // Vérifie que les noms ont une longueur minimale pour la correspondance partielle
+          if (existingLower.length < 3) return false;
+          return existingLower.includes(suggestedNameLower) || 
+                 suggestedNameLower.includes(existingLower);
+        });
+        
+        if (partialMatch) {
+          mapping.gristColumn = partialMatch;
+        }
+      }
+    });
+  }
+  
   emit('update:modelValue', generatedMappings);
 }
 
@@ -100,6 +140,37 @@ const availableApiFields = computed(() => {
  */
 const enabledCount = computed(() => {
   return mappings.value.filter(m => m.enabled !== false).length;
+});
+
+/**
+ * Détermine si une colonne Grist existe déjà ou sera créée
+ */
+function isExistingColumn(columnName: string): boolean {
+  if (!props.existingGristColumns || !columnName) return false;
+  return props.existingGristColumns.some(col => col.toLowerCase() === columnName.toLowerCase());
+}
+
+/**
+ * Compte le nombre de nouvelles colonnes qui seront créées
+ */
+const newColumnsCount = computed(() => {
+  if (!props.existingGristColumns) return 0;
+  
+  return mappings.value.filter(m => {
+    if (m.enabled === false || !m.gristColumn) return false;
+    return !isExistingColumn(m.gristColumn);
+  }).length;
+});
+
+/**
+ * Liste des nouvelles colonnes qui seront créées
+ */
+const newColumnsList = computed(() => {
+  if (!props.existingGristColumns) return [];
+  
+  return mappings.value
+    .filter(m => m.enabled !== false && m.gristColumn && !isExistingColumn(m.gristColumn))
+    .map(m => m.gristColumn);
 });
 </script>
 
@@ -149,6 +220,39 @@ const enabledCount = computed(() => {
       />
     </div>
     
+    <!-- Avertissement sur les nouvelles colonnes -->
+    <div v-if="existingGristColumns && newColumnsCount > 0" class="fr-mb-2w">
+      <DsfrAlert
+        type="warning"
+        title="⚠️ Nouvelles colonnes à créer"
+        :description="`${newColumnsCount} colonne(s) seront créées dans Grist car elles n'existent pas encore.`"
+      >
+        <template #default>
+          <div class="new-columns-info">
+            <p class="fr-text--sm"><strong>Colonnes qui seront créées :</strong></p>
+            <ul class="fr-text--sm">
+              <li v-for="colName in newColumnsList" :key="colName">
+                <code class="fr-code">{{ colName }}</code>
+              </li>
+            </ul>
+            <p class="fr-text--sm fr-mt-2w">
+              💡 <strong>Conseil :</strong> Si vous voulez mapper vers des colonnes existantes au lieu d'en créer de nouvelles, 
+              utilisez les noms exacts de vos colonnes Grist dans la colonne "Colonne Grist".
+            </p>
+          </div>
+        </template>
+      </DsfrAlert>
+    </div>
+    
+    <!-- Info sur les colonnes existantes -->
+    <div v-if="existingGristColumns && existingGristColumns.length > 0 && newColumnsCount === 0 && mappings.length > 0" class="fr-mb-2w">
+      <DsfrAlert
+        type="success"
+        title="✅ Mapping vers colonnes existantes"
+        description="Tous les mappings actifs correspondent à des colonnes qui existent déjà dans Grist. Aucune nouvelle colonne ne sera créée."
+      />
+    </div>
+    
     <div class="table-container">
       <div class="fr-table fr-table--bordered">
         <table>
@@ -180,15 +284,32 @@ const enabledCount = computed(() => {
               </td>
               <td class="col-number">{{ index + 1 }}</td>
               <td class="col-grist">
-                <input
-                  type="text"
-                  :value="mapping.gristColumn"
-                  @input="updateMapping(index, 'gristColumn', ($event.target as HTMLInputElement).value)"
-                  placeholder="Ex: Name, Email, Score..."
-                  class="fr-input"
-                  :disabled="mapping.enabled === false"
-                  :aria-label="`Colonne Grist ${index + 1}`"
-                />
+                <div class="grist-column-input-wrapper">
+                  <input
+                    type="text"
+                    :value="mapping.gristColumn"
+                    @input="updateMapping(index, 'gristColumn', ($event.target as HTMLInputElement).value)"
+                    placeholder="Ex: Name, Email, Score..."
+                    class="fr-input"
+                    :class="{
+                      'existing-column': existingGristColumns && mapping.gristColumn && isExistingColumn(mapping.gristColumn),
+                      'new-column': existingGristColumns && mapping.gristColumn && !isExistingColumn(mapping.gristColumn)
+                    }"
+                    :disabled="mapping.enabled === false"
+                    :aria-label="`Colonne Grist ${index + 1}`"
+                    :list="existingGristColumns && existingGristColumns.length > 0 ? `grist-columns-${index}` : undefined"
+                  />
+                  <datalist v-if="existingGristColumns && existingGristColumns.length > 0" :id="`grist-columns-${index}`">
+                    <option v-for="col in existingGristColumns" :key="col" :value="col" />
+                  </datalist>
+                  <span 
+                    v-if="existingGristColumns && mapping.gristColumn"
+                    class="column-status-indicator"
+                    :title="isExistingColumn(mapping.gristColumn) ? 'Colonne existante' : 'Nouvelle colonne (sera créée)'"
+                  >
+                    {{ isExistingColumn(mapping.gristColumn) ? '✓' : '➕' }}
+                  </span>
+                </div>
               </td>
               <td class="col-arrow">
                 <span class="arrow" aria-hidden="true">←</span>
@@ -361,6 +482,44 @@ const enabledCount = computed(() => {
   color: var(--text-disabled-grey);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* Indicateurs visuels pour les colonnes */
+.grist-column-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.column-status-indicator {
+  position: absolute;
+  right: 0.5rem;
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.existing-column {
+  border-left: 3px solid #18753C !important;
+}
+
+.new-column {
+  border-left: 3px solid #FF9940 !important;
+}
+
+/* Info sur les nouvelles colonnes */
+.new-columns-info {
+  margin-top: 0.5rem;
+}
+
+.new-columns-info ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0.5rem 0;
+}
+
+.new-columns-info li {
+  padding: 0.25rem 0;
 }
 
 .fr-checkbox {
