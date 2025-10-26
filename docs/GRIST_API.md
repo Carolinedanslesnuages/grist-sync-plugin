@@ -479,12 +479,17 @@ curl -X POST "https://docs.getgrist.com/api/docs/abc123/tables/Users/columns" \
 
 ### Format des réponses d'erreur
 
+Les réponses d'erreur de l'API Grist sont généralement retournées en texte brut ou JSON selon le type d'erreur. Le format peut varier, mais inclut typiquement une description de l'erreur.
+
+**Exemple générique :**
 ```json
 {
   "error": "Description de l'erreur",
   "details": "Informations supplémentaires"
 }
 ```
+
+**Note :** Le format exact peut varier selon le type d'erreur. Vérifiez toujours le `response.status` et `response.text()` pour obtenir les détails complets.
 
 ### Stratégies de gestion des erreurs
 
