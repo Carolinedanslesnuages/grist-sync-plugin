@@ -244,8 +244,12 @@ const enabledCount = computed(() => {
       <DsfrCallout
         class="fr-mt-2w"
         title="💡 Colonnes personnalisées"
-        content="Vous pouvez créer des colonnes personnalisées en laissant le champ API vide. Ces colonnes seront créées dans Grist avec des valeurs vides, que vous pourrez remplir manuellement plus tard."
-      />
+      >
+        <p class="fr-text--sm">
+          Laissez le champ API vide pour créer une colonne personnalisée. 
+          La colonne sera créée dans Grist avec des valeurs vides à remplir manuellement.
+        </p>
+      </DsfrCallout>
     </div>
   </div>
 </template>
