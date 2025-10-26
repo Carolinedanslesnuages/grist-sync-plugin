@@ -23,6 +23,12 @@ describe('gristWidget', () => {
     if (typeof (global as any).grist !== 'undefined') {
       delete (global as any).grist;
     }
+    // Clean up document.referrer
+    Object.defineProperty(document, 'referrer', {
+      value: '',
+      writable: true,
+      configurable: true,
+    });
   });
 
   describe('isRunningInGrist', () => {
@@ -193,6 +199,80 @@ describe('gristWidget', () => {
       expect(result.gristApiUrl).toBe('http://localhost:8484');
       expect(result.accessToken).toBe('token-from-query');
     });
+
+    it('devrait détecter tableId depuis les paramètres de requête', async () => {
+      // Mock window.location.search
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'http://localhost:5173',
+          pathname: '/',
+          search: '?docId=test-doc&tableId=MyTable',
+        },
+        writable: true,
+      });
+
+      const result = await initializeGristWidget();
+      
+      expect(result.isInGrist).toBe(true);
+      expect(result.docId).toBe('test-doc');
+      expect(result.tableId).toBe('MyTable');
+    });
+
+    it('devrait détecter tableId depuis le referrer avec /p/', async () => {
+      // Clean window.grist
+      delete (window as any).grist;
+      
+      // Mock document.referrer with /p/TableName
+      Object.defineProperty(document, 'referrer', {
+        value: 'http://localhost:8484/doc/test-doc/p/TableName',
+        writable: true,
+        configurable: true,
+      });
+
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'http://localhost:5173',
+          pathname: '/',
+          search: '',
+        },
+        writable: true,
+      });
+
+      const result = await initializeGristWidget();
+      
+      expect(result.isInGrist).toBe(true);
+      expect(result.docId).toBe('test-doc');
+      expect(result.tableId).toBe('TableName');
+      expect(result.gristApiUrl).toBe('http://localhost:8484');
+    });
+
+    it('devrait détecter tableId depuis le referrer avec query param', async () => {
+      // Clean window.grist
+      delete (window as any).grist;
+      
+      // Mock document.referrer with ?tableId=
+      Object.defineProperty(document, 'referrer', {
+        value: 'http://localhost:8484/doc/test-doc?tableId=QueryTable',
+        writable: true,
+        configurable: true,
+      });
+
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'http://localhost:5173',
+          pathname: '/',
+          search: '',
+        },
+        writable: true,
+      });
+
+      const result = await initializeGristWidget();
+      
+      expect(result.isInGrist).toBe(true);
+      expect(result.docId).toBe('test-doc');
+      expect(result.tableId).toBe('QueryTable');
+      expect(result.gristApiUrl).toBe('http://localhost:8484');
+    });
   });
 
   describe('applyGristInfoToConfig', () => {
@@ -216,6 +296,25 @@ describe('gristWidget', () => {
       expect(result.gristApiUrl).toBe('https://new.getgrist.com');
       expect(result.apiTokenGrist).toBe('test-token');
       expect(result.tableId).toBe('Table1'); // Should preserve original tableId
+    });
+
+    it('devrait appliquer tableId si fourni dans gristInfo', () => {
+      const config: GristConfig = {
+        docId: 'DOC_ID',
+        tableId: 'OldTable',
+        gristApiUrl: 'https://docs.getgrist.com',
+      };
+
+      const gristInfo = {
+        isInGrist: true,
+        docId: 'DOC_ID',
+        tableId: 'NewTable',
+      };
+
+      const result = applyGristInfoToConfig(config, gristInfo);
+
+      expect(result.tableId).toBe('NewTable');
+      expect(result.docId).toBe('DOC_ID');
     });
 
     it('ne devrait pas modifier la config si aucune info n\'est fournie', () => {
