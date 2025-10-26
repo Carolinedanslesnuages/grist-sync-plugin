@@ -1,3 +1,4 @@
+// src/utils/gristWidget.ts
 /**
  * Utility for integrating with Grist Custom Widget API
  * Automatically detects if running within a Grist environment
@@ -8,7 +9,7 @@ import type { GristConfig } from '../config';
 
 // Type for grist global (will be undefined if not in Grist environment)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type GristAPI = any;
+declare const grist: any;
 
 interface GristWidgetInfo {
   isInGrist: boolean;
@@ -18,147 +19,148 @@ interface GristWidgetInfo {
 }
 
 /**
- * Get the Grist API object from the window if available
+ * Check if the plugin is running within a Grist Custom Widget
  */
-function getGristAPI(): GristAPI | null {
+export function isRunningInGrist(): boolean {
   try {
-    // In a browser environment, grist is available as window.grist
-    if (typeof window !== 'undefined' && (window as any).grist) {
-      return (window as any).grist;
-    }
-    return null;
+    return typeof grist !== 'undefined' && grist !== null && typeof grist.ready === 'function';
   } catch (e) {
-    console.debug('Error accessing window.grist:', e);
-    return null;
+    return false;
   }
 }
 
 /**
- * Check if the plugin is running within a Grist Custom Widget
+ * Try multiple URL patterns to extract a Grist document ID.
+ * Supports:
+ * - /doc/<docId>
+ * - /o/<org>/doc/<docId>
+ * - /<docId>/<docName>/p/<n>  (pattern seen in local dev)
  */
-export function isRunningInGrist(): boolean {
-  // Check if grist object is available (provided by Grist when running as a widget)
-  try {
-    const grist = getGristAPI();
-    const result = grist !== null && typeof grist.ready === 'function';
-    console.log('[Grist Auto-Detection] isRunningInGrist:', result);
-    return result;
-  } catch (e) {
-    console.debug('[Grist Auto-Detection] Error checking grist environment:', e);
-    return false;
-  }
+function extractDocIdFromPath(pathname: string): string | null {
+  if (!pathname) return null;
+
+  // /doc/<id>
+  let m = pathname.match(/\/doc\/([^\/]+)/);
+  if (m && m[1]) return m[1];
+
+  // /o/<org>/doc/<id>
+  m = pathname.match(/\/o\/[^\/]+\/doc\/([^\/]+)/);
+  if (m && m[1]) return m[1];
+
+  // /<docId>/<something>/p/<n>  (local Grist dev pattern)
+  m = pathname.match(/^\/([^\/]+)\/[^\/]+\/p\/\d+/);
+  if (m && m[1]) return m[1];
+
+  // Generic fallback: first path segment might be the docId
+  m = pathname.match(/^\/([^\/]+)(?:\//|$)/);
+  if (m && m[1]) return m[1];
+
+  return null;
 }
 
 /**
  * Initialize connection to Grist and retrieve document information
  */
 export async function initializeGristWidget(): Promise<GristWidgetInfo> {
-  console.log('[Grist Auto-Detection] Starting initialization...');
-  
   const result: GristWidgetInfo = {
     isInGrist: false,
   };
 
-  if (!isRunningInGrist()) {
-    console.log('[Grist Auto-Detection] Not running in Grist environment');
-    return result;
-  }
-
-  const grist = getGristAPI();
-  if (!grist) {
-    console.log('[Grist Auto-Detection] Grist API not available');
-    return result;
-  }
-
-  try {
-    console.log('[Grist Auto-Detection] Calling grist.ready()...');
-    // Initialize the Grist plugin API
-    await grist.ready();
-    console.log('[Grist Auto-Detection] grist.ready() completed successfully');
-    
-    result.isInGrist = true;
-
-    // Extract Grist API URL and document ID
-    // When running as a custom widget, we might be in an iframe
-    // Try multiple sources to find the document URL
-    
-    let gristOrigin: string | null = null;
-    let gristPath: string | null = null;
-    
-    // Strategy 1: Check if we're in an iframe and can access parent
+  // If running as an actual Grist widget, prefer grist API
+  if (isRunningInGrist()) {
     try {
-      if (window.parent && window.parent !== window && window.parent.location) {
-        gristOrigin = window.parent.location.origin;
-        gristPath = window.parent.location.pathname;
-        console.log('[Grist Auto-Detection] Detected from parent window - origin:', gristOrigin, 'path:', gristPath);
+      await grist.ready();
+      result.isInGrist = true;
+
+      // Try to get access token from Grist API if available
+      try {
+        const accessInfo = await grist.docApi?.getAccessInfo?.();
+        if (accessInfo && accessInfo.token) {
+          result.accessToken = accessInfo.token;
+        }
+      } catch (e) {
+        console.info('Could not retrieve access token from Grist API:', e);
+      }
+    } catch (err) {
+      console.warn('Error initializing grist API:', err);
+      result.isInGrist = false;
+    }
+  }
+
+  // Multi-strategy detection for origin / path / docId:
+  // 1) try parent window (if same-origin)
+  // 2) fallback to document.referrer (works for cross-origin iframe)
+  // 3) fallback to current window.location (useful when app served by Grist or when opened directly)
+  // 4) fallback to query params (?docId=...&gristApiUrl=...)
+  try {
+    let gristOrigin: string | undefined;
+    let gristPath: string | undefined;
+
+    // Strategy 1: try reading parent (may throw if cross-origin)
+    try {
+      if (window.parent && window.parent !== window) {
+        // protect with try/catch — may be blocked cross-origin
+        gristOrigin = window.parent.location?.origin;
+        gristPath = window.parent.location?.pathname;
       }
     } catch (e) {
-      // Cross-origin access denied, try other methods
-      console.debug('[Grist Auto-Detection] Cannot access parent.location (cross-origin):', e);
+      // access to parent blocked by browser -> fallback to referrer
+      console.debug('Access to window.parent blocked (cross-origin), will try document.referrer', e);
     }
-    
-    // Strategy 2: Use document.referrer if parent is not accessible
-    if (!gristOrigin && document.referrer) {
+
+    // Strategy 2: use document.referrer (commonly set when loaded in iframe)
+    if ((!gristOrigin || !gristPath) && document.referrer) {
       try {
-        const referrerUrl = new URL(document.referrer);
-        gristOrigin = referrerUrl.origin;
-        gristPath = referrerUrl.pathname;
-        console.log('[Grist Auto-Detection] Detected from referrer - origin:', gristOrigin, 'path:', gristPath);
+        const ref = new URL(document.referrer);
+        gristOrigin = gristOrigin || ref.origin;
+        gristPath = gristPath || ref.pathname;
       } catch (e) {
-        console.debug('[Grist Auto-Detection] Could not parse referrer URL:', e);
+        console.debug('document.referrer exists but could not be parsed as URL', e);
       }
     }
-    
-    // Strategy 3: Fallback to current window location
-    if (!gristOrigin) {
+
+    // Strategy 3: use current window.location (useful when app is served by Grist or opened directly)
+    if (!gristOrigin && window.location?.origin) {
       gristOrigin = window.location.origin;
-      gristPath = window.location.pathname;
-      console.log('[Grist Auto-Detection] Using current window - origin:', gristOrigin, 'path:', gristPath);
     }
-    
-    // Set the Grist API URL
+    if (!gristPath && window.location?.pathname) {
+      gristPath = window.location.pathname;
+    }
+
+    // Strategy 4: query params fallback (handy in dev)
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (!gristOrigin && sp.get('gristApiUrl')) {
+        gristOrigin = sp.get('gristApiUrl') || undefined;
+      }
+      if (!gristPath && sp.get('docId')) {
+        // If docId passed as query param, set it below
+      }
+      // also allow ?docId=... directly
+      const qDoc = sp.get('docId');
+      if (qDoc) {
+        result.docId = qDoc;
+      }
+    } catch (e) {
+      // ignore
+    }
+
     if (gristOrigin) {
       result.gristApiUrl = gristOrigin;
-      console.log('[Grist Auto-Detection] Final API URL:', result.gristApiUrl);
     }
-    
-    // Extract document ID from the path
-    // Support multiple URL patterns:
-    // - /doc/DOC_ID
-    // - /o/ORG/doc/DOC_ID
-    // - /doc/DOC_ID/p/...
+
     if (gristPath) {
-      console.log('[Grist Auto-Detection] Parsing path for docId:', gristPath);
-      const docMatch = gristPath.match(/\/doc\/([^\/]+)/);
-      if (docMatch && docMatch[1]) {
-        result.docId = docMatch[1];
-        console.log('[Grist Auto-Detection] Detected Document ID:', result.docId);
-      } else {
-        console.log('[Grist Auto-Detection] Could not extract Document ID from path:', gristPath);
-      }
+      const docIdFromPath = extractDocIdFromPath(gristPath);
+      if (docIdFromPath) result.docId = result.docId || docIdFromPath;
     }
 
-    // Try to get access token from Grist API
-    // Note: This may not be available depending on Grist version and security settings
-    try {
-      console.log('[Grist Auto-Detection] Attempting to retrieve access token...');
-      const accessInfo = await grist.docApi.getAccessInfo?.();
-      if (accessInfo && accessInfo.token) {
-        result.accessToken = accessInfo.token;
-        console.log('[Grist Auto-Detection] Access token retrieved successfully');
-      } else {
-        console.log('[Grist Auto-Detection] No access token in response');
-      }
-    } catch (e) {
-      // Access token might not be available, which is fine
-      console.info('[Grist Auto-Detection] Could not retrieve access token from Grist API:', e);
+    // Last-resort: if still no docId, try to extract from window.location.pathname (again)
+    if (!result.docId) {
+      const docId = extractDocIdFromPath(window.location.pathname || '');
+      if (docId) result.docId = docId;
     }
-
-    console.log('[Grist Auto-Detection] Final result:', result);
-
-  } catch (error) {
-    console.error('[Grist Auto-Detection] Error initializing Grist widget:', error);
-    result.isInGrist = false;
+  } catch (e) {
+    console.warn('Error extracting Grist info from page environment:', e);
   }
 
   return result;
@@ -181,35 +183,10 @@ export function applyGristInfoToConfig(
     updatedConfig.gristApiUrl = gristInfo.gristApiUrl;
   }
 
+  // If we got an access token from the widget API, apply it to the config token field
   if (gristInfo.accessToken) {
     updatedConfig.apiTokenGrist = gristInfo.accessToken;
   }
 
   return updatedConfig;
-}
-
-/**
- * Subscribe to table changes in Grist (if running as a widget)
- */
-export async function subscribeToGristChanges(callback: () => void): Promise<void> {
-  if (!isRunningInGrist()) {
-    console.log('[Grist Auto-Detection] Not in Grist, skipping subscribeToGristChanges');
-    return;
-  }
-
-  const grist = getGristAPI();
-  if (!grist) {
-    console.log('[Grist Auto-Detection] Grist API not available for subscription');
-    return;
-  }
-
-  try {
-    await grist.ready();
-    grist.onRecords((records: unknown) => {
-      console.log('[Grist Auto-Detection] Grist records updated:', records);
-      callback();
-    });
-  } catch (error) {
-    console.warn('[Grist Auto-Detection] Error subscribing to Grist changes:', error);
-  }
 }
