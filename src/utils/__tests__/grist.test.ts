@@ -320,6 +320,155 @@ describe('GristClient', () => {
     });
   });
 
+  describe('addColumns', () => {
+    it('devrait créer de nouvelles colonnes qui n\'existent pas', async () => {
+      // Mock getColumns pour retourner les colonnes existantes
+      const mockGetColumnsResponse = {
+        ok: true,
+        json: async () => ({
+          columns: [
+            { id: 'Name', fields: { colId: 'Name', type: 'Text' } }
+          ]
+        })
+      };
+      
+      // Mock addColumns pour la création
+      const mockAddColumnsResponse = {
+        ok: true,
+        json: async () => ({
+          columns: [
+            { id: 'Email', fields: { colId: 'Email', type: 'Text' } }
+          ]
+        })
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetColumnsResponse) // getColumns
+        .mockResolvedValueOnce(mockAddColumnsResponse); // POST columns
+
+      const client = new GristClient(mockConfig);
+      const columnsToAdd = [
+        { id: 'Name', label: 'Name', type: 'Text' }, // Existe déjà
+        { id: 'Email', label: 'Email', type: 'Text' } // Nouvelle colonne
+      ];
+
+      const result = await client.addColumns(columnsToAdd);
+
+      expect(result.columns).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      
+      // Vérifie que seule la colonne Email est créée
+      const postCall = mockFetch.mock.calls[1];
+      const body = JSON.parse(postCall[1].body);
+      expect(body.columns).toHaveLength(1);
+      expect(body.columns[0].id).toBe('Email');
+    });
+
+    it('ne devrait pas créer de colonnes si toutes existent déjà', async () => {
+      const mockGetColumnsResponse = {
+        ok: true,
+        json: async () => ({
+          columns: [
+            { id: 'Name', fields: { colId: 'Name', type: 'Text' } },
+            { id: 'Email', fields: { colId: 'Email', type: 'Text' } }
+          ]
+        })
+      };
+
+      mockFetch.mockResolvedValueOnce(mockGetColumnsResponse);
+
+      const client = new GristClient(mockConfig);
+      const columnsToAdd = [
+        { id: 'Name', label: 'Name', type: 'Text' },
+        { id: 'Email', label: 'Email', type: 'Text' }
+      ];
+
+      const result = await client.addColumns(columnsToAdd);
+
+      expect(result.columns).toHaveLength(0);
+      // Ne devrait appeler que getColumns, pas POST
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch.mock.calls[0][1].method).toBe('GET');
+    });
+
+    it('devrait créer toutes les colonnes si aucune n\'existe', async () => {
+      const mockGetColumnsResponse = {
+        ok: true,
+        json: async () => ({ columns: [] })
+      };
+      
+      const mockAddColumnsResponse = {
+        ok: true,
+        json: async () => ({
+          columns: [
+            { id: 'Name', fields: { colId: 'Name', type: 'Text' } },
+            { id: 'Email', fields: { colId: 'Email', type: 'Text' } }
+          ]
+        })
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetColumnsResponse)
+        .mockResolvedValueOnce(mockAddColumnsResponse);
+
+      const client = new GristClient(mockConfig);
+      const columnsToAdd = [
+        { id: 'Name', label: 'Name', type: 'Text' },
+        { id: 'Email', label: 'Email', type: 'Text' }
+      ];
+
+      const result = await client.addColumns(columnsToAdd);
+
+      expect(result.columns).toHaveLength(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('devrait retourner un tableau vide si aucune colonne à créer', async () => {
+      const client = new GristClient(mockConfig);
+      const result = await client.addColumns([]);
+
+      expect(result.columns).toHaveLength(0);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('devrait gérer les erreurs lors de la récupération des colonnes', async () => {
+      const mockGetColumnsResponse = {
+        ok: false,
+        status: 403,
+        text: async () => 'Forbidden'
+      };
+
+      mockFetch.mockResolvedValueOnce(mockGetColumnsResponse);
+
+      const client = new GristClient(mockConfig);
+      const columnsToAdd = [{ id: 'Name', type: 'Text' }];
+
+      await expect(client.addColumns(columnsToAdd)).rejects.toThrow();
+    });
+
+    it('devrait gérer les erreurs lors de la création des colonnes', async () => {
+      const mockGetColumnsResponse = {
+        ok: true,
+        json: async () => ({ columns: [] })
+      };
+      
+      const mockAddColumnsResponse = {
+        ok: false,
+        status: 500,
+        text: async () => 'Server Error'
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetColumnsResponse)
+        .mockResolvedValueOnce(mockAddColumnsResponse);
+
+      const client = new GristClient(mockConfig);
+      const columnsToAdd = [{ id: 'Name', type: 'Text' }];
+
+      await expect(client.addColumns(columnsToAdd)).rejects.toThrow();
+    });
+  });
+
   describe('testConnection', () => {
     it('devrait retourner true si la connexion réussit', async () => {
       const mockResponse = {
