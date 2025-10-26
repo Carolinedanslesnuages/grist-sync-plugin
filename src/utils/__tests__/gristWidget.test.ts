@@ -15,7 +15,11 @@ const mockGrist = {
 describe('gristWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Clean up global grist
+    // Clean up window.grist
+    if (typeof (window as any).grist !== 'undefined') {
+      delete (window as any).grist;
+    }
+    // Also clean up global.grist for backwards compatibility
     if (typeof (global as any).grist !== 'undefined') {
       delete (global as any).grist;
     }
@@ -27,12 +31,12 @@ describe('gristWidget', () => {
     });
 
     it('devrait retourner true quand grist est défini avec ready', () => {
-      (global as any).grist = mockGrist;
+      (window as any).grist = mockGrist;
       expect(isRunningInGrist()).toBe(true);
     });
 
     it('devrait retourner false quand grist n\'a pas de méthode ready', () => {
-      (global as any).grist = { something: 'else' };
+      (window as any).grist = { something: 'else' };
       expect(isRunningInGrist()).toBe(false);
     });
   });
@@ -47,7 +51,7 @@ describe('gristWidget', () => {
     });
 
     it('devrait initialiser et extraire les informations quand dans Grist', async () => {
-      (global as any).grist = mockGrist;
+      (window as any).grist = mockGrist;
       
       // Mock window.location
       Object.defineProperty(window, 'location', {
@@ -67,7 +71,7 @@ describe('gristWidget', () => {
     });
 
     it('devrait gérer les erreurs lors de l\'initialisation', async () => {
-      (global as any).grist = {
+      (window as any).grist = {
         ready: vi.fn().mockRejectedValue(new Error('Init failed')),
       };
 
@@ -78,7 +82,7 @@ describe('gristWidget', () => {
 
     it('devrait extraire le token d\'accès si disponible', async () => {
       const mockToken = 'test-access-token-123';
-      (global as any).grist = {
+      (window as any).grist = {
         ...mockGrist,
         docApi: {
           getAccessInfo: vi.fn().mockResolvedValue({ token: mockToken }),

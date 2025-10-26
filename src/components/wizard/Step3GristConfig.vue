@@ -202,15 +202,21 @@ async function testGristConnection() {
 
 // Auto-detect Grist configuration on component mount
 onMounted(async () => {
+  console.log('[Step3GristConfig] Component mounted, checking for Grist environment...');
+  
   // Check if running within Grist as a Custom Widget
   if (isRunningInGrist()) {
+    console.log('[Step3GristConfig] Running in Grist environment, starting auto-detection');
     isEmbeddedInGrist.value = true;
     emit('status', '🔍 Détection de l\'environnement Grist...', 'info');
     
     try {
+      console.log('[Step3GristConfig] Calling initializeGristWidget...');
       const gristInfo = await initializeGristWidget();
+      console.log('[Step3GristConfig] initializeGristWidget returned:', gristInfo);
       
       if (gristInfo.isInGrist) {
+        console.log('[Step3GristConfig] Grist info detected, applying to config');
         // Apply auto-detected values
         const updatedConfig = applyGristInfoToConfig(localConfig.value, gristInfo);
         
@@ -218,28 +224,39 @@ onMounted(async () => {
         autoDetectedFields.value = [];
         if (gristInfo.docId) {
           autoDetectedFields.value.push('Document ID');
+          console.log('[Step3GristConfig] Auto-detected Document ID:', gristInfo.docId);
         }
         if (gristInfo.gristApiUrl) {
           autoDetectedFields.value.push('URL API Grist');
+          console.log('[Step3GristConfig] Auto-detected API URL:', gristInfo.gristApiUrl);
         }
         if (gristInfo.accessToken) {
           autoDetectedFields.value.push('Token API');
+          console.log('[Step3GristConfig] Auto-detected access token (masked)');
         }
         
         // Update local config
         localConfig.value = updatedConfig;
+        console.log('[Step3GristConfig] Config updated with auto-detected values');
         
         // Show success message
         if (autoDetectedFields.value.length > 0) {
           const fieldsStr = autoDetectedFields.value.join(', ');
           emit('status', `✅ Configuration auto-détectée: ${fieldsStr}`, 'success');
+          console.log('[Step3GristConfig] Auto-detection successful:', fieldsStr);
+        } else {
+          console.log('[Step3GristConfig] No fields were auto-detected');
         }
+      } else {
+        console.log('[Step3GristConfig] isInGrist is false in returned info');
       }
     } catch (error) {
-      console.error('Erreur lors de la détection automatique:', error);
+      console.error('[Step3GristConfig] Erreur lors de la détection automatique:', error);
       emit('status', '⚠️ Impossible de détecter automatiquement la configuration Grist', 'info');
       isEmbeddedInGrist.value = false;
     }
+  } else {
+    console.log('[Step3GristConfig] Not running in Grist environment');
   }
 });
 
