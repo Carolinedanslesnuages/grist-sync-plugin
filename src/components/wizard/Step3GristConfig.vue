@@ -117,8 +117,8 @@ function handleValidGristUrl(input: string) {
   if (parsed.gristApiUrl) {
     localConfig.value.gristApiUrl = parsed.gristApiUrl;
   }
-  if ((parsed as any).tableId) {
-    localConfig.value.tableId = (parsed as any).tableId;
+  if (parsed.tableId) {
+    localConfig.value.tableId = parsed.tableId;
   }
   emit('status', '✅ URL Grist analysée avec succès', 'success');
   connectionTested.value = false;

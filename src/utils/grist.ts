@@ -115,41 +115,91 @@ export interface DryRunResult {
 export interface ParsedGristUrl {
   docId: string | null;
   gristApiUrl: string | null;
+  tableId?: string | null;
 }
 
 /**
- * Parse une URL de document Grist pour extraire le docId et l'URL de base
+ * Parse une URL de document Grist pour extraire le docId, tableId et l'URL de base
  * 
  * @param url - L'URL complète du document Grist
- * @returns Un objet contenant le docId et l'URL de base de l'API
+ * @returns Un objet contenant le docId, tableId (optionnel) et l'URL de base de l'API
+ * 
+ * Formats supportés:
+ * - Standard: /doc/{docId} ou /o/{org}/doc/{docId}
+ * - Avec page: /doc/{docId}/p/{pageId}
+ * - Format court: /d/{docId}/t/{tableId}/
+ * - Query params: ?table={tableId} ou ?tableId={tableId}
  * 
  * @example
  * parseGristUrl('https://docs.getgrist.com/doc/abc123xyz')
- * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com' }
+ * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com', tableId: null }
  * 
  * parseGristUrl('https://grist.example.com/o/myorg/doc/myDocId/p/5')
- * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com' }
+ * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com', tableId: null }
+ * 
+ * parseGristUrl('https://docs.getgrist.com/d/abc123/t/MyTable/')
+ * // { docId: 'abc123', gristApiUrl: 'https://docs.getgrist.com', tableId: 'MyTable' }
+ * 
+ * parseGristUrl('https://docs.getgrist.com/doc/abc123?table=MyTable')
+ * // { docId: 'abc123', gristApiUrl: 'https://docs.getgrist.com', tableId: 'MyTable' }
  */
 export function parseGristUrl(url: string): ParsedGristUrl {
   try {
     const urlObj = new URL(url);
     const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
     
-    // Recherche du docId dans le chemin de l'URL
-    // Format typique: /doc/{docId} ou /o/{org}/doc/{docId}
-    const docMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
+    let docId: string | null = null;
+    let tableId: string | null = null;
     
-    if (docMatch && docMatch[1]) {
+    // Format court: /d/{docId}/t/{tableId}/
+    const shortFormatMatch = urlObj.pathname.match(/\/d\/([^\/\?#]+)\/t\/([^\/\?#]+)/);
+    if (shortFormatMatch) {
+      docId = shortFormatMatch[1] || null;
+      tableId = shortFormatMatch[2] || null;
       return {
-        docId: docMatch[1],
-        gristApiUrl: baseUrl
+        docId,
+        gristApiUrl: baseUrl,
+        tableId
       };
     }
     
-    return { docId: null, gristApiUrl: null };
+    // Recherche du docId dans le chemin de l'URL
+    // Format typique: /doc/{docId} ou /o/{org}/doc/{docId}
+    const docMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
+    if (docMatch && docMatch[1]) {
+      docId = docMatch[1];
+    }
+    
+    // Extraction du tableId depuis les query parameters
+    const tableParam = urlObj.searchParams.get('table') || urlObj.searchParams.get('tableId');
+    if (tableParam) {
+      tableId = tableParam;
+    }
+    
+    // Si aucun tableId trouvé, chercher dans le path après /p/
+    if (!tableId) {
+      const pageMatch = urlObj.pathname.match(/\/p\/([^\/\?#]+)/);
+      if (pageMatch && pageMatch[1]) {
+        // Vérifier que ce n'est pas juste un numéro (qui serait un page ID)
+        const pageValue = pageMatch[1];
+        if (!/^\d+$/.test(pageValue)) {
+          tableId = pageValue;
+        }
+      }
+    }
+    
+    if (docId) {
+      return {
+        docId,
+        gristApiUrl: baseUrl,
+        tableId: tableId || null
+      };
+    }
+    
+    return { docId: null, gristApiUrl: null, tableId: null };
   } catch (error) {
     // URL invalide
-    return { docId: null, gristApiUrl: null };
+    return { docId: null, gristApiUrl: null, tableId: null };
   }
 }
 

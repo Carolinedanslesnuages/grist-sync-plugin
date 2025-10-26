@@ -82,6 +82,106 @@ describe('parseGristUrl', () => {
     expect(result.docId).toBe('abc123');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
   });
+
+  // Tests pour l'extraction du tableId
+  it('devrait extraire tableId depuis le format court /d/{docId}/t/{tableId}/', () => {
+    const url = 'https://docs.getgrist.com/d/abc123/t/MyTable/';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('MyTable');
+  });
+
+  it('devrait extraire tableId depuis le format court sans trailing slash', () => {
+    const url = 'https://docs.getgrist.com/d/abc123/t/Users';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('Users');
+  });
+
+  it('devrait extraire tableId depuis le query parameter ?table=', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123?table=MyTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('MyTable');
+  });
+
+  it('devrait extraire tableId depuis le query parameter ?tableId=', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123?tableId=Users';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('Users');
+  });
+
+  it('devrait prioriser tableId du query parameter sur celui du path /p/', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123/p/OldTable?tableId=NewTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('NewTable');
+  });
+
+  it('devrait extraire tableId depuis /p/{tableName} si pas un numéro', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123/p/MyTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('MyTable');
+  });
+
+  it('ne devrait pas extraire tableId depuis /p/{pageId} si c\'est un numéro', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123/p/5';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
+  });
+
+  it('devrait extraire tableId avec des underscores et chiffres', () => {
+    const url = 'https://docs.getgrist.com/d/abc123/t/Table_Name_123/';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('Table_Name_123');
+  });
+
+  it('devrait gérer les URLs complexes avec organisation et tableId', () => {
+    const url = 'https://docs.getgrist.com/o/myorg/d/abc123/t/MyTable/';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('MyTable');
+  });
+
+  it('devrait gérer les URLs avec query parameters multiples', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123?other=value&tableId=MyTable&another=param';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('MyTable');
+  });
+
+  it('devrait retourner tableId null si aucun tableId trouvé', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
+  });
 });
 
 describe('isValidGristUrl', () => {
