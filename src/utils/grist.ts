@@ -114,42 +114,92 @@ export interface DryRunResult {
  */
 export interface ParsedGristUrl {
   docId: string | null;
+  tableId: string | null;
   gristApiUrl: string | null;
 }
 
 /**
- * Parse une URL de document Grist pour extraire le docId et l'URL de base
+ * Parse une URL de document Grist pour extraire le docId, tableId et l'URL de base
+ * 
+ * Extraction priority:
+ * 1. Query parameters (?tableId or ?table) for tableId
+ * 2. Short path format (/d/{docId}) for docId
+ * 3. Long path format (/doc/{docId}) for docId
+ * 4. Page path format (/p/{tableId}) for tableId
  * 
  * @param url - L'URL complète du document Grist
- * @returns Un objet contenant le docId et l'URL de base de l'API
+ * @param wsDocId - Optional docId provided by WebSocket/Widget API (takes precedence)
+ * @returns Un objet contenant le docId, tableId et l'URL de base de l'API
  * 
  * @example
  * parseGristUrl('https://docs.getgrist.com/doc/abc123xyz')
- * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com' }
+ * // { docId: 'abc123xyz', tableId: null, gristApiUrl: 'https://docs.getgrist.com' }
  * 
  * parseGristUrl('https://grist.example.com/o/myorg/doc/myDocId/p/5')
- * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com' }
+ * // { docId: 'myDocId', tableId: '5', gristApiUrl: 'https://grist.example.com' }
+ * 
+ * parseGristUrl('https://docs.getgrist.com/d/abc123/p/Table1?tableId=MyTable')
+ * // { docId: 'abc123', tableId: 'MyTable', gristApiUrl: 'https://docs.getgrist.com' }
+ * 
+ * parseGristUrl('https://docs.getgrist.com/doc/abc123', 'ws-provided-id')
+ * // { docId: 'ws-provided-id', tableId: null, gristApiUrl: 'https://docs.getgrist.com' }
  */
-export function parseGristUrl(url: string): ParsedGristUrl {
+export function parseGristUrl(url: string, wsDocId?: string | null): ParsedGristUrl {
   try {
     const urlObj = new URL(url);
     const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
     
-    // Recherche du docId dans le chemin de l'URL
-    // Format typique: /doc/{docId} ou /o/{org}/doc/{docId}
-    const docMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
+    let docId: string | null = null;
+    let tableId: string | null = null;
     
-    if (docMatch && docMatch[1]) {
-      return {
-        docId: docMatch[1],
-        gristApiUrl: baseUrl
-      };
+    // Priority 1: Use WS-provided docId if available
+    if (wsDocId) {
+      docId = wsDocId;
     }
     
-    return { docId: null, gristApiUrl: null };
+    // Priority 2: Extract tableId from query parameters (?tableId or ?table)
+    const queryTableId = urlObj.searchParams.get('tableId') || urlObj.searchParams.get('table');
+    if (queryTableId) {
+      tableId = queryTableId;
+    }
+    
+    // Priority 3: Extract docId from short path format /d/{docId}
+    if (!docId) {
+      const shortDocMatch = urlObj.pathname.match(/\/d\/([^\/\?#]+)/);
+      if (shortDocMatch && shortDocMatch[1]) {
+        docId = shortDocMatch[1];
+      }
+    }
+    
+    // Priority 4: Extract docId from long path format /doc/{docId}
+    if (!docId) {
+      const longDocMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
+      if (longDocMatch && longDocMatch[1]) {
+        docId = longDocMatch[1];
+      }
+    }
+    
+    // Priority 5: Extract tableId from page path /p/{tableId} (if not already found in query params)
+    if (!tableId) {
+      const pageMatch = urlObj.pathname.match(/\/p\/([^\/\?#]+)/);
+      if (pageMatch && pageMatch[1]) {
+        tableId = pageMatch[1];
+      }
+    }
+    
+    // Return null for all fields if no docId found
+    if (!docId) {
+      return { docId: null, tableId: null, gristApiUrl: null };
+    }
+    
+    return {
+      docId,
+      tableId,
+      gristApiUrl: baseUrl
+    };
   } catch (error) {
     // URL invalide
-    return { docId: null, gristApiUrl: null };
+    return { docId: null, tableId: null, gristApiUrl: null };
   }
 }
 
@@ -157,10 +207,11 @@ export function parseGristUrl(url: string): ParsedGristUrl {
  * Valide si une chaîne de caractères est une URL Grist valide
  * 
  * @param url - L'URL à valider
+ * @param wsDocId - Optional docId provided by WebSocket/Widget API
  * @returns true si l'URL est valide et contient un docId
  */
-export function isValidGristUrl(url: string): boolean {
-  const parsed = parseGristUrl(url);
+export function isValidGristUrl(url: string, wsDocId?: string | null): boolean {
+  const parsed = parseGristUrl(url, wsDocId);
   return parsed.docId !== null && parsed.gristApiUrl !== null;
 }
 

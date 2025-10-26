@@ -16,6 +16,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe('abc123xyz');
+    expect(result.tableId).toBe(null);
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
   });
 
@@ -24,6 +25,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe('myDocId');
+    expect(result.tableId).toBe(null);
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
   });
 
@@ -32,6 +34,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('5');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
   });
 
@@ -40,6 +43,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe('myDocId');
+    expect(result.tableId).toBe(null);
     expect(result.gristApiUrl).toBe('https://grist.example.com');
   });
 
@@ -48,6 +52,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe('testDoc');
+    expect(result.tableId).toBe(null);
     expect(result.gristApiUrl).toBe('http://localhost:8484');
   });
 
@@ -56,6 +61,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe(null);
+    expect(result.tableId).toBe(null);
     expect(result.gristApiUrl).toBe(null);
   });
 
@@ -64,6 +70,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe(null);
+    expect(result.tableId).toBe(null);
     expect(result.gristApiUrl).toBe(null);
   });
 
@@ -72,6 +79,7 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe(null);
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
   });
 
@@ -80,6 +88,143 @@ describe('parseGristUrl', () => {
     const result = parseGristUrl(url);
 
     expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe(null);
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  // New tests for tableId extraction
+  it('devrait extraire tableId depuis le paramètre de requête tableId', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123?tableId=MyTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('MyTable');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait extraire tableId depuis le paramètre de requête table', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123?table=Users';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('Users');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait prioriser tableId sur table dans les paramètres de requête', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123?tableId=MyTable&table=OtherTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('MyTable');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait extraire tableId depuis le chemin /p/ quand absent des paramètres', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123/p/TableName';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('TableName');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait prioriser tableId des paramètres de requête sur le chemin /p/', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123/p/5?tableId=MyTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('MyTable');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait extraire docId depuis le format court /d/', () => {
+    const url = 'https://docs.getgrist.com/d/shortDocId';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('shortDocId');
+    expect(result.tableId).toBe(null);
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait prioriser le format court /d/ sur le format long /doc/', () => {
+    const url = 'https://docs.getgrist.com/d/shortId/doc/longId';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('shortId');
+    expect(result.tableId).toBe(null);
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait extraire à la fois docId et tableId depuis le format court', () => {
+    const url = 'https://docs.getgrist.com/d/myDoc/p/MyTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('myDoc');
+    expect(result.tableId).toBe('MyTable');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait utiliser wsDocId quand fourni', () => {
+    const url = 'https://docs.getgrist.com/doc/urlDocId';
+    const result = parseGristUrl(url, 'wsProvidedId');
+
+    expect(result.docId).toBe('wsProvidedId');
+    expect(result.tableId).toBe(null);
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait prioriser wsDocId sur tous les autres formats', () => {
+    const url = 'https://docs.getgrist.com/d/shortId/doc/longId?docId=paramId';
+    const result = parseGristUrl(url, 'wsProvidedId');
+
+    expect(result.docId).toBe('wsProvidedId');
+    expect(result.tableId).toBe(null);
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait utiliser wsDocId même si null est passé explicitement', () => {
+    const url = 'https://docs.getgrist.com/doc/urlDocId';
+    const result = parseGristUrl(url, null);
+
+    expect(result.docId).toBe('urlDocId');
+    expect(result.tableId).toBe(null);
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait extraire tableId même avec wsDocId fourni', () => {
+    const url = 'https://docs.getgrist.com/doc/urlDocId/p/MyTable';
+    const result = parseGristUrl(url, 'wsProvidedId');
+
+    expect(result.docId).toBe('wsProvidedId');
+    expect(result.tableId).toBe('MyTable');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait gérer URL complexe avec organisation et tous les paramètres', () => {
+    const url = 'https://grist.example.com/o/myorg/d/docId/p/pageId?tableId=MyTable&other=param';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('docId');
+    expect(result.tableId).toBe('MyTable');
+    expect(result.gristApiUrl).toBe('https://grist.example.com');
+  });
+
+  it('devrait gérer les IDs de table numériques', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123/p/42';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('42');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+  });
+
+  it('devrait gérer les IDs de table avec caractères spéciaux', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123?tableId=My_Table-2024';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.tableId).toBe('My_Table-2024');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
   });
 });

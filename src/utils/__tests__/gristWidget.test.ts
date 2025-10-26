@@ -58,6 +58,7 @@ describe('gristWidget', () => {
         value: {
           origin: 'http://localhost:8484',
           pathname: '/doc/test-doc-id/p/MyTable',
+          href: 'http://localhost:8484/doc/test-doc-id/p/MyTable',
         },
         writable: true,
       });
@@ -66,6 +67,7 @@ describe('gristWidget', () => {
       
       expect(result.isInGrist).toBe(true);
       expect(result.docId).toBe('test-doc-id');
+      expect(result.tableId).toBe('MyTable');
       expect(result.gristApiUrl).toBe('http://localhost:8484');
       expect(mockGrist.ready).toHaveBeenCalled();
     });
@@ -93,6 +95,7 @@ describe('gristWidget', () => {
         value: {
           origin: 'https://docs.getgrist.com',
           pathname: '/doc/abc123',
+          href: 'https://docs.getgrist.com/doc/abc123',
         },
         writable: true,
       });
@@ -109,6 +112,7 @@ describe('gristWidget', () => {
           origin: 'http://localhost:5173',
           pathname: '/',
           search: '?docId=test-query-doc&gristApiUrl=http://localhost:8484&apiTokenGrist=test-token-123',
+          href: 'http://localhost:5173/?docId=test-query-doc&gristApiUrl=http://localhost:8484&apiTokenGrist=test-token-123',
         },
         writable: true,
       });
@@ -121,6 +125,25 @@ describe('gristWidget', () => {
       expect(result.accessToken).toBe('test-token-123');
     });
 
+    it('devrait détecter tableId depuis les paramètres de requête', async () => {
+      // Mock window.location.search
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'http://localhost:5173',
+          pathname: '/',
+          search: '?docId=test-query-doc&tableId=MyTable',
+          href: 'http://localhost:5173/?docId=test-query-doc&tableId=MyTable',
+        },
+        writable: true,
+      });
+
+      const result = await initializeGristWidget();
+      
+      expect(result.isInGrist).toBe(true);
+      expect(result.docId).toBe('test-query-doc');
+      expect(result.tableId).toBe('MyTable');
+    });
+
     it('devrait détecter un docId seul dans les paramètres de requête', async () => {
       // Mock window.location.search
       Object.defineProperty(window, 'location', {
@@ -128,6 +151,7 @@ describe('gristWidget', () => {
           origin: 'http://localhost:5173',
           pathname: '/',
           search: '?docId=test-only-doc',
+          href: 'http://localhost:5173/?docId=test-only-doc',
         },
         writable: true,
       });
@@ -154,6 +178,7 @@ describe('gristWidget', () => {
           origin: 'http://localhost:5173',
           pathname: '/',
           search: '',
+          href: 'http://localhost:5173/',
         },
         writable: true,
       });
@@ -162,6 +187,7 @@ describe('gristWidget', () => {
       
       expect(result.isInGrist).toBe(true);
       expect(result.docId).toBe('referrer-doc-id');
+      expect(result.tableId).toBe('Table1');
       expect(result.gristApiUrl).toBe('http://localhost:8484');
     });
 
@@ -182,6 +208,7 @@ describe('gristWidget', () => {
           origin: 'http://localhost:5173',
           pathname: '/',
           search: '?apiTokenGrist=token-from-query',
+          href: 'http://localhost:5173/?apiTokenGrist=token-from-query',
         },
         writable: true,
       });
@@ -216,6 +243,27 @@ describe('gristWidget', () => {
       expect(result.gristApiUrl).toBe('https://new.getgrist.com');
       expect(result.apiTokenGrist).toBe('test-token');
       expect(result.tableId).toBe('Table1'); // Should preserve original tableId
+    });
+
+    it('devrait appliquer tableId auto-détecté', () => {
+      const config: GristConfig = {
+        docId: 'OLD_DOC_ID',
+        tableId: 'OldTable',
+        gristApiUrl: 'https://docs.getgrist.com',
+      };
+
+      const gristInfo = {
+        isInGrist: true,
+        docId: 'NEW_DOC_ID',
+        tableId: 'NewTable',
+        gristApiUrl: 'https://new.getgrist.com',
+      };
+
+      const result = applyGristInfoToConfig(config, gristInfo);
+
+      expect(result.docId).toBe('NEW_DOC_ID');
+      expect(result.tableId).toBe('NewTable');
+      expect(result.gristApiUrl).toBe('https://new.getgrist.com');
     });
 
     it('ne devrait pas modifier la config si aucune info n\'est fournie', () => {

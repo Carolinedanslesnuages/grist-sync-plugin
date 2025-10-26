@@ -117,8 +117,8 @@ function handleValidGristUrl(input: string) {
   if (parsed.gristApiUrl) {
     localConfig.value.gristApiUrl = parsed.gristApiUrl;
   }
-  if ((parsed as any).tableId) {
-    localConfig.value.tableId = (parsed as any).tableId;
+  if (parsed.tableId) {
+    localConfig.value.tableId = parsed.tableId;
   }
   emit('status', '✅ URL Grist analysée avec succès', 'success');
   connectionTested.value = false;
@@ -246,6 +246,10 @@ onMounted(async () => {
       if (gristInfo.docId) {
         autoDetectedFields.value.push('Document ID');
         console.log('[Step3GristConfig] Auto-detected Document ID:', gristInfo.docId);
+      }
+      if (gristInfo.tableId) {
+        autoDetectedFields.value.push('Table ID');
+        console.log('[Step3GristConfig] Auto-detected Table ID:', gristInfo.tableId);
       }
       if (gristInfo.gristApiUrl) {
         autoDetectedFields.value.push('URL API Grist');
@@ -396,12 +400,22 @@ watch(localConfig, (newVal) => {
         </DsfrInputGroup>
 
         <DsfrInputGroup>
-          <DsfrInput
-            label="Table ID *"
-            v-model="localConfig.tableId"
-            placeholder="Votre ID de table Grist"
-            hint="Le nom de la table où insérer les données"
-          />
+          <div class="input-with-badge">
+            <DsfrInput
+              label="Table ID *"
+              v-model="localConfig.tableId"
+              placeholder="Votre ID de table Grist"
+              hint="Le nom de la table où insérer les données"
+            />
+            <DsfrBadge 
+              v-if="autoDetectedFields.includes('Table ID')" 
+              type="success" 
+              small
+              class="auto-detected-badge"
+            >
+              ✓ Auto-détecté
+            </DsfrBadge>
+          </div>
         </DsfrInputGroup>
 
         <DsfrInputGroup>

@@ -5,6 +5,7 @@
  */
 
 import type { GristConfig } from '../config';
+import { parseGristUrl } from './grist';
 
 // Type for grist global (will be undefined if not in Grist environment)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,6 +14,7 @@ type GristAPI = any;
 interface GristWidgetInfo {
   isInGrist: boolean;
   docId?: string;
+  tableId?: string;
   gristApiUrl?: string;
   accessToken?: string;
 }
@@ -67,6 +69,11 @@ function extractFromQueryParams(): Partial<GristWidgetInfo> {
       console.log('[Grist Auto-Detection] Found docId in query params:', result.docId);
     }
     
+    if (params.has('tableId') || params.has('table')) {
+      result.tableId = params.get('tableId') || params.get('table') || undefined;
+      console.log('[Grist Auto-Detection] Found tableId in query params:', result.tableId);
+    }
+    
     if (params.has('gristApiUrl')) {
       result.gristApiUrl = params.get('gristApiUrl') || undefined;
       console.log('[Grist Auto-Detection] Found gristApiUrl in query params:', result.gristApiUrl);
@@ -95,20 +102,25 @@ function extractFromReferrer(): Partial<GristWidgetInfo> {
       return result;
     }
     
-    const referrerUrl = new URL(document.referrer);
-    console.log('[Grist Auto-Detection] Analyzing referrer:', document.referrer);
+    const referrerUrl = document.referrer;
+    console.log('[Grist Auto-Detection] Analyzing referrer:', referrerUrl);
     
-    // Extract API URL from referrer origin
-    if (referrerUrl.origin && referrerUrl.origin !== window.location.origin) {
-      result.gristApiUrl = referrerUrl.origin;
+    // Use parseGristUrl to extract docId, tableId, and API URL from referrer
+    const parsed = parseGristUrl(referrerUrl);
+    
+    if (parsed.gristApiUrl) {
+      result.gristApiUrl = parsed.gristApiUrl;
       console.log('[Grist Auto-Detection] Detected API URL from referrer:', result.gristApiUrl);
     }
     
-    // Extract document ID from referrer path
-    const docMatch = referrerUrl.pathname.match(/\/doc\/([^\/]+)/);
-    if (docMatch && docMatch[1]) {
-      result.docId = docMatch[1];
+    if (parsed.docId) {
+      result.docId = parsed.docId;
       console.log('[Grist Auto-Detection] Detected Document ID from referrer:', result.docId);
+    }
+    
+    if (parsed.tableId) {
+      result.tableId = parsed.tableId;
+      console.log('[Grist Auto-Detection] Detected Table ID from referrer:', result.tableId);
     }
     
   } catch (e) {
@@ -133,20 +145,25 @@ function extractFromParent(): Partial<GristWidgetInfo> {
     // Try to extract info from parent location if accessible
     try {
       if (window.parent.location && window.parent.location.href) {
-        const parentUrl = new URL(window.parent.location.href);
+        const parentUrl = window.parent.location.href;
         console.log('[Grist Auto-Detection] Analyzing parent location');
         
-        // Extract API URL from parent origin
-        if (parentUrl.origin && parentUrl.origin !== window.location.origin) {
-          result.gristApiUrl = parentUrl.origin;
+        // Use parseGristUrl to extract docId, tableId, and API URL from parent
+        const parsed = parseGristUrl(parentUrl);
+        
+        if (parsed.gristApiUrl) {
+          result.gristApiUrl = parsed.gristApiUrl;
           console.log('[Grist Auto-Detection] Detected API URL from parent:', result.gristApiUrl);
         }
         
-        // Extract document ID from parent path
-        const docMatch = parentUrl.pathname.match(/\/doc\/([^\/]+)/);
-        if (docMatch && docMatch[1]) {
-          result.docId = docMatch[1];
+        if (parsed.docId) {
+          result.docId = parsed.docId;
           console.log('[Grist Auto-Detection] Detected Document ID from parent:', result.docId);
+        }
+        
+        if (parsed.tableId) {
+          result.tableId = parsed.tableId;
+          console.log('[Grist Auto-Detection] Detected Table ID from parent:', result.tableId);
         }
       }
     } catch (e) {
@@ -172,6 +189,8 @@ export async function initializeGristWidget(): Promise<GristWidgetInfo> {
     isInGrist: false,
   };
 
+  let wsProvidedDocId: string | undefined;
+
   // Strategy 1: Try Grist Widget API (when running as a custom widget)
   if (isRunningInGrist()) {
     const grist = getGristAPI();
@@ -190,16 +209,23 @@ export async function initializeGristWidget(): Promise<GristWidgetInfo> {
           console.log('[Grist Auto-Detection] Detected API URL:', result.gristApiUrl);
         }
 
-        // Extract document ID from URL
-        // Grist URLs are typically: https://docs.getgrist.com/doc/DOC_ID or http://localhost:8484/doc/DOC_ID
-        const urlPath = window.location.pathname;
-        console.log('[Grist Auto-Detection] URL pathname:', urlPath);
-        const docMatch = urlPath.match(/\/doc\/([^\/]+)/);
-        if (docMatch && docMatch[1]) {
-          result.docId = docMatch[1];
-          console.log('[Grist Auto-Detection] Detected Document ID:', result.docId);
-        } else {
-          console.log('[Grist Auto-Detection] Could not extract Document ID from URL');
+        // Extract document ID and table ID from URL using parseGristUrl
+        if (window.location && window.location.href) {
+          console.log('[Grist Auto-Detection] Parsing widget URL:', window.location.href);
+          const parsed = parseGristUrl(window.location.href);
+          
+          if (parsed.docId) {
+            result.docId = parsed.docId;
+            wsProvidedDocId = parsed.docId; // Save for use in subsequent strategies
+            console.log('[Grist Auto-Detection] Detected Document ID from widget URL:', result.docId);
+          } else {
+            console.log('[Grist Auto-Detection] Could not extract Document ID from widget URL');
+          }
+          
+          if (parsed.tableId) {
+            result.tableId = parsed.tableId;
+            console.log('[Grist Auto-Detection] Detected Table ID from widget URL:', result.tableId);
+          }
         }
 
         // Try to get access token from Grist API
@@ -231,23 +257,35 @@ export async function initializeGristWidget(): Promise<GristWidgetInfo> {
   // Strategy 2: Try to extract from parent window (iframe context)
   console.log('[Grist Auto-Detection] Trying parent window detection...');
   const parentInfo = extractFromParent();
-  if (parentInfo.docId || parentInfo.gristApiUrl) {
+  if (parentInfo.docId || parentInfo.gristApiUrl || parentInfo.tableId) {
     console.log('[Grist Auto-Detection] Found info from parent:', parentInfo);
-    Object.assign(result, parentInfo);
+    // Preserve WS-provided docId if available
+    if (!result.docId && parentInfo.docId) {
+      result.docId = wsProvidedDocId || parentInfo.docId;
+    }
+    if (!result.gristApiUrl && parentInfo.gristApiUrl) {
+      result.gristApiUrl = parentInfo.gristApiUrl;
+    }
+    if (!result.tableId && parentInfo.tableId) {
+      result.tableId = parentInfo.tableId;
+    }
     result.isInGrist = true;
   }
 
   // Strategy 3: Try to extract from document.referrer
   console.log('[Grist Auto-Detection] Trying referrer detection...');
   const referrerInfo = extractFromReferrer();
-  if (referrerInfo.docId || referrerInfo.gristApiUrl) {
+  if (referrerInfo.docId || referrerInfo.gristApiUrl || referrerInfo.tableId) {
     console.log('[Grist Auto-Detection] Found info from referrer:', referrerInfo);
-    // Only override if not already set
+    // Only override if not already set, but preserve WS-provided docId
     if (!result.docId && referrerInfo.docId) {
-      result.docId = referrerInfo.docId;
+      result.docId = wsProvidedDocId || referrerInfo.docId;
     }
     if (!result.gristApiUrl && referrerInfo.gristApiUrl) {
       result.gristApiUrl = referrerInfo.gristApiUrl;
+    }
+    if (!result.tableId && referrerInfo.tableId) {
+      result.tableId = referrerInfo.tableId;
     }
     if (!result.accessToken && referrerInfo.accessToken) {
       result.accessToken = referrerInfo.accessToken;
@@ -258,14 +296,17 @@ export async function initializeGristWidget(): Promise<GristWidgetInfo> {
   // Strategy 4: Try to extract from query parameters (useful for development)
   console.log('[Grist Auto-Detection] Trying query parameter detection...');
   const queryInfo = extractFromQueryParams();
-  if (queryInfo.docId || queryInfo.gristApiUrl || queryInfo.accessToken) {
+  if (queryInfo.docId || queryInfo.gristApiUrl || queryInfo.tableId || queryInfo.accessToken) {
     console.log('[Grist Auto-Detection] Found info from query params:', queryInfo);
-    // Only override if not already set
+    // Only override if not already set, but preserve WS-provided docId
     if (!result.docId && queryInfo.docId) {
-      result.docId = queryInfo.docId;
+      result.docId = wsProvidedDocId || queryInfo.docId;
     }
     if (!result.gristApiUrl && queryInfo.gristApiUrl) {
       result.gristApiUrl = queryInfo.gristApiUrl;
+    }
+    if (!result.tableId && queryInfo.tableId) {
+      result.tableId = queryInfo.tableId;
     }
     if (!result.accessToken && queryInfo.accessToken) {
       result.accessToken = queryInfo.accessToken;
@@ -288,6 +329,10 @@ export function applyGristInfoToConfig(
 
   if (gristInfo.docId) {
     updatedConfig.docId = gristInfo.docId;
+  }
+
+  if (gristInfo.tableId) {
+    updatedConfig.tableId = gristInfo.tableId;
   }
 
   if (gristInfo.gristApiUrl) {
