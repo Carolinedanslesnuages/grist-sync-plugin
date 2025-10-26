@@ -7,7 +7,7 @@ import type { GristConfig } from '../../config';
 import { GristClient } from '../../utils/grist';
 
 /**
- * Step 2: Aperçu, sélection et mapping dynamique des champs
+ * Step 3: Aperçu, sélection et mapping dynamique des champs
  */
 
 interface Props {
@@ -78,7 +78,7 @@ watch(
     <div class="step-header">
       <h2 class="fr-h2">
         <span class="step-icon">🗂️</span>
-        Étape 2 : Mapping des données
+        Étape 3 : Mapping des données
       </h2>
       <p class="fr-text">
         Visualisez vos données et configurez la correspondance entre les champs API et les colonnes Grist.

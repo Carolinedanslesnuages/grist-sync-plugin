@@ -225,7 +225,7 @@ watch(localConfig, (newVal) => {
     <div class="step-header">
       <h2 class="fr-h2">
         <span class="step-icon"></span>
-        Étape 3 : Configuration Grist
+        Étape 2 : Configuration Grist
       </h2>
       <p class="fr-text">
         Configurez la destination des données dans votre document Grist.

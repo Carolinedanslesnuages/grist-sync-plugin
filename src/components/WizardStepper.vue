@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from 'vue'
 import Step1ApiSource from './wizard/Step1ApiSource.vue'
-import Step2DataMapping from './wizard/Step2DataMapping.vue'
-import Step3GristConfig from './wizard/Step3GristConfig.vue'
+import Step2GristConfig from './wizard/Step3GristConfig.vue'
+import Step3DataMapping from './wizard/Step2DataMapping.vue'
 import Step4Sync from './wizard/Step4Sync.vue'
 import type { FieldMapping } from '../utils/mapping'
 import type { GristConfig } from '../config'
@@ -11,8 +11,8 @@ import type { ApiRecord } from '../types/api'
 
 const steps = [
   'Récupération des données',
-  'Mapping des champs',
   'Configuration Grist',
+  'Mapping des champs',
   'Synchronisation',
 ]
 const totalSteps = steps.length
@@ -30,18 +30,18 @@ const statusType = ref<'success' | 'error' | 'info'>('info')
 
 const MESSAGES = {
   fetchSuccess: 'Données récupérées avec succès',
-  mappingSaved: 'Mapping configuré avec succès',
   gristValidated: 'Configuration Grist validée',
+  mappingSaved: 'Mapping configuré avec succès',
 }
 
 const isStep1Complete = computed(() => apiData.value.length > 0)
-const isStep2Complete = computed(() => mappings.value.some(m => !!m.gristColumn && !!m.apiField))
-const isStep3Complete = computed(() =>
+const isStep2Complete = computed(() =>
   !!gristConfig.value.docId &&
   gristConfig.value.docId !== 'YOUR_DOC_ID' &&
   !!gristConfig.value.tableId &&
   gristConfig.value.tableId !== 'YOUR_TABLE_ID'
 )
+const isStep3Complete = computed(() => mappings.value.some(m => !!m.gristColumn && !!m.apiField))
 
 const stepCompletion = [null, isStep1Complete, isStep2Complete, isStep3Complete, isStep4Complete]
 const canGoNext = computed(() => stepCompletion[currentStep.value]?.value ?? false)
@@ -79,8 +79,8 @@ function goToStep(direction: 'next' | 'prev') {
   statusMessage.value = ''
   if (direction === 'next' && currentStep.value < totalSteps) {
     if (!canGoNext.value) return
-    if (currentStep.value === 2) showStatus(MESSAGES.mappingSaved, 'success')
-    else if (currentStep.value === 3) showStatus(MESSAGES.gristValidated, 'success')
+    if (currentStep.value === 2) showStatus(MESSAGES.gristValidated, 'success')
+    else if (currentStep.value === 3) showStatus(MESSAGES.mappingSaved, 'success')
     currentStep.value++
   } else if (direction === 'prev' && currentStep.value > 1) {
     currentStep.value--
@@ -148,18 +148,18 @@ onBeforeUnmount(() => {
           @complete="handleStep1Complete"
           @status="showStatus"
         />
-        <Step2DataMapping
+        <Step2GristConfig
           v-else-if="currentStep === 2"
+          v-model:config="gristConfig"
+          v-model:isLoading="isLoading"
+          @status="showStatus"
+        />
+        <Step3DataMapping
+          v-else-if="currentStep === 3"
           :apiData="apiData"
           :sampleRecord="sampleRecord"
           v-model:mappings="mappings"
           :gristConfig="gristConfig"
-          @status="showStatus"
-        />
-        <Step3GristConfig
-          v-else-if="currentStep === 3"
-          v-model:config="gristConfig"
-          v-model:isLoading="isLoading"
           @status="showStatus"
         />
         <Step4Sync

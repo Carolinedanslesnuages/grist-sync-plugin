@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Tests pour l'étape 3 : Configuration Grist
+ * Tests pour l'étape 2 : Configuration Grist
  */
-test.describe('Étape 3 - Configuration Grist', () => {
+test.describe('Étape 2 - Configuration Grist', () => {
   test.beforeEach(async ({ page }) => {
     // Mock de l'API pour passer l'étape 1
     await page.route('**/api/data', (route) => {
@@ -26,26 +26,13 @@ test.describe('Étape 3 - Configuration Grist', () => {
     await loadButton.click();
     await page.waitForTimeout(1000);
     
-    // Passer à l'étape 2
+    // Passer à l'étape 2 (Configuration Grist)
     let nextButton = page.getByRole('button', { name: /suivant/i });
     await nextButton.click();
     
-    // Configurer un mapping basique pour passer l'étape 2
-    // (L'implémentation exacte dépend de l'interface)
-    await page.waitForTimeout(500);
-    
-    // Essayer de passer à l'étape 3 si possible
-    // Si le mapping minimal est automatiquement créé, on peut avancer
-    nextButton = page.getByRole('button', { name: /suivant/i });
-    const isEnabled = await nextButton.isEnabled().catch(() => false);
-    
-    if (isEnabled) {
-      await nextButton.click();
-      
-      // Vérifier qu'on est sur l'étape 3
-      const currentStep = page.locator('.fr-stepper__step[aria-current="step"]');
-      await expect(currentStep).toContainText('Configuration Grist');
-    }
+    // Vérifier qu'on est sur l'étape 2
+    const currentStep = page.locator('.fr-stepper__step[aria-current="step"]');
+    await expect(currentStep).toContainText('Configuration Grist');
   });
 
   test('devrait afficher les champs de configuration Grist', async ({ page }) => {
