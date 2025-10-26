@@ -47,17 +47,17 @@ Les tests couvrent les parcours fonctionnels principaux :
 - Validation des URL
 - Gestion des erreurs réseau
 
-✅ **Étape 2 : Mapping**
-- Affichage des champs API
-- Configuration du mapping
-- Ajout/suppression de mappings
-- Validation du mapping
-
-✅ **Étape 3 : Configuration Grist**
+✅ **Étape 2 : Configuration Grist**
 - Saisie Document ID
 - Saisie Table ID
 - Configuration API Key
 - Options de synchronisation
+
+✅ **Étape 3 : Mapping**
+- Affichage des champs API
+- Configuration du mapping
+- Ajout/suppression de mappings
+- Validation du mapping
 
 ✅ **Gestion des erreurs**
 - Erreurs réseau (timeout, DNS)

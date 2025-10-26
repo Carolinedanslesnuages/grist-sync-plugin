@@ -111,9 +111,9 @@ test.describe('Flux complet du wizard', () => {
     // Passer à l'étape 2
     await nextButton.click();
     
-    // Vérifier qu'on est sur l'étape 2
+    // Vérifier qu'on est sur l'étape 2 (Configuration Grist)
     const currentStep = page.locator('.fr-stepper__step[aria-current="step"]');
-    await expect(currentStep).toContainText('Mapping des champs');
+    await expect(currentStep).toContainText('Configuration Grist');
   });
 
   test('devrait permettre de revenir à l\'étape précédente', async ({ page }) => {
@@ -141,9 +141,9 @@ test.describe('Flux complet du wizard', () => {
     const nextButton = page.getByRole('button', { name: /suivant/i });
     await nextButton.click();
     
-    // Vérifier qu'on est sur l'étape 2
+    // Vérifier qu'on est sur l'étape 2 (Configuration Grist)
     let currentStep = page.locator('.fr-stepper__step[aria-current="step"]');
-    await expect(currentStep).toContainText('Mapping des champs');
+    await expect(currentStep).toContainText('Configuration Grist');
     
     // Revenir à l'étape 1
     const previousButton = page.getByRole('button', { name: /précédent/i });

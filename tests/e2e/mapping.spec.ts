@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Tests pour l'étape 2 : Mapping des données
+ * Tests pour l'étape 3 : Mapping des données
  */
-test.describe('Étape 2 - Mapping des données', () => {
+test.describe('Étape 3 - Mapping des données', () => {
   test.beforeEach(async ({ page }) => {
     // Intercepter l'appel API pour simuler des données
     await page.route('**/api/data', (route) => {
@@ -31,7 +31,7 @@ test.describe('Étape 2 - Mapping des données', () => {
 
     await page.goto('/');
     
-    // Naviguer jusqu'à l'étape 2
+    // Naviguer jusqu'à l'étape 3 (Mapping)
     const urlInput = page.getByLabel(/URL de l'API/i);
     await urlInput.fill('https://api.example.com/api/data');
     
@@ -41,11 +41,26 @@ test.describe('Étape 2 - Mapping des données', () => {
     // Attendre le chargement des données
     await page.waitForTimeout(1000);
     
-    // Passer à l'étape 2
-    const nextButton = page.getByRole('button', { name: /suivant/i });
+    // Passer à l'étape 2 (Configuration Grist)
+    let nextButton = page.getByRole('button', { name: /suivant/i });
     await nextButton.click();
     
-    // Vérifier qu'on est sur l'étape 2
+    // Configurer Grist pour passer à l'étape 3
+    const docIdInput = page.getByLabel(/Document ID/i).or(page.getByLabel(/ID du document/i)).first();
+    const tableIdInput = page.getByLabel(/Table ID/i).or(page.getByLabel(/ID de la table/i)).first();
+    
+    if (await docIdInput.isVisible()) {
+      await docIdInput.fill('test-doc-123');
+    }
+    if (await tableIdInput.isVisible()) {
+      await tableIdInput.fill('TestTable');
+    }
+    
+    // Passer à l'étape 3 (Mapping)
+    nextButton = page.getByRole('button', { name: /suivant/i });
+    await nextButton.click();
+    
+    // Vérifier qu'on est sur l'étape 3
     const currentStep = page.locator('.fr-stepper__step[aria-current="step"]');
     await expect(currentStep).toContainText('Mapping des champs');
   });
@@ -119,7 +134,23 @@ test.describe('Configuration du mapping', () => {
     await loadButton.click();
     await page.waitForTimeout(1000);
     
-    const nextButton = page.getByRole('button', { name: /suivant/i });
+    // Passer à l'étape 2 (Configuration Grist)
+    let nextButton = page.getByRole('button', { name: /suivant/i });
+    await nextButton.click();
+    
+    // Configurer Grist pour passer à l'étape 3
+    const docIdInput = page.getByLabel(/Document ID/i).or(page.getByLabel(/ID du document/i)).first();
+    const tableIdInput = page.getByLabel(/Table ID/i).or(page.getByLabel(/ID de la table/i)).first();
+    
+    if (await docIdInput.isVisible()) {
+      await docIdInput.fill('test-doc-123');
+    }
+    if (await tableIdInput.isVisible()) {
+      await tableIdInput.fill('TestTable');
+    }
+    
+    // Passer à l'étape 3 (Mapping)
+    nextButton = page.getByRole('button', { name: /suivant/i });
     await nextButton.click();
   });
 
