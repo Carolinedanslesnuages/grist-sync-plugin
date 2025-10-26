@@ -38,6 +38,10 @@ Grist sera accessible sur http://localhost:8484
 
 📖 **Consultez le [guide de configuration Docker](docs/DOCKER_SETUP.md)** pour plus de détails.
 
+### 📚 Documentation
+
+- **[Documentation de l'API Grist](docs/GRIST_API.md)** - Guide complet des endpoints utilisés
+- **[Configuration Docker](docs/DOCKER_SETUP.md)** - Guide pour tester avec une instance locale
 
 ### 📁 Structure du projet
 
