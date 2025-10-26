@@ -51,7 +51,7 @@ Si vous souhaitez utiliser l'authentification :
 
 ## Configuration du plugin
 
-### Modifier `src/config.ts`
+### Option 1: Modifier `src/config.ts`
 
 Mettez à jour la configuration par défaut pour pointer vers votre instance locale :
 
@@ -64,6 +64,10 @@ export const defaultConfig: GristConfig = {
   autoCreateColumns: true
 };
 ```
+
+### Option 2: Utiliser le fichier d'exemple
+
+Un fichier d'exemple est disponible dans `docs/config.example.ts` avec plusieurs configurations prêtes à l'emploi. Vous pouvez vous en inspirer pour votre propre configuration.
 
 ### Exemple complet
 
