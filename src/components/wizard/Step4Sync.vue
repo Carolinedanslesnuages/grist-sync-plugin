@@ -424,7 +424,7 @@ async function syncToGrist() {
               <DsfrAccordion
                 v-if="lastSyncError.technicalDetails"
                 title="🔧 Détails techniques"
-                :id="`technical-details-sync-${Date.now()}`"
+                :id="`${componentId}-technical-details`"
                 class="fr-mt-2w"
               >
                 <pre class="fr-text--xs fr-mt-1w fr-code" style="overflow-x: auto;">{{ lastSyncError.technicalDetails }}</pre>
