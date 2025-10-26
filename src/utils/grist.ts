@@ -59,6 +59,57 @@ export interface GristAddColumnsRequest {
 }
 
 /**
+ * Interface pour une requête de mise à jour d'enregistrements à Grist
+ */
+export interface GristUpdateRecordsRequest {
+  records: Array<{
+    id: number;
+    fields: Record<string, any>;
+  }>;
+}
+
+/**
+ * Interface pour un enregistrement Grist complet (avec ID)
+ */
+export interface GristRecord {
+  id: number;
+  fields: Record<string, any>;
+}
+
+/**
+ * Interface pour la réponse de récupération des enregistrements
+ */
+export interface GristGetRecordsResponse {
+  records: GristRecord[];
+}
+
+/**
+ * Interface pour le résultat d'une synchronisation
+ */
+export interface SyncResult {
+  added: number;
+  updated: number;
+  unchanged: number;
+  errors: number;
+  details: string[];
+}
+
+/**
+ * Interface pour le résultat d'un dry-run
+ */
+export interface DryRunResult {
+  toAdd: Array<Record<string, any>>;
+  toUpdate: Array<{ id: number; fields: Record<string, any>; changes?: Record<string, { old: any; new: any }> }>;
+  unchanged: Array<{ id: number; fields: Record<string, any> }>;
+  summary: {
+    totalRecords: number;
+    recordsToAdd: number;
+    recordsToUpdate: number;
+    recordsUnchanged: number;
+  };
+}
+
+/**
  * Interface pour les informations extraites d'une URL Grist
  */
 export interface ParsedGristUrl {
@@ -508,6 +559,224 @@ export class GristClient {
         needsAuth: false
       };
     }
+  }
+
+  /**
+   * Met à jour des enregistrements existants dans Grist
+   * 
+   * @param updates - Tableau d'enregistrements à mettre à jour (avec leur ID Grist)
+   * @returns Promesse résolue avec le nombre d'enregistrements mis à jour
+   * @throws Error si la requête échoue
+   */
+  async updateRecords(updates: Array<{ id: number; fields: Record<string, any> }>): Promise<number> {
+    if (!updates || updates.length === 0) {
+      return 0;
+    }
+    
+    const url = this.buildApiUrl('/records');
+    const body: GristUpdateRecordsRequest = {
+      records: updates
+    };
+    
+    try {
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: this.buildHeaders(),
+        body: JSON.stringify(body)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
+      }
+      
+      return updates.length;
+    } catch (error) {
+      const errorInfo = analyzeError(error, 'grist_sync');
+      this.log(`${errorInfo.title}: ${errorInfo.message}`, 'error');
+      this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      
+      if (error instanceof Error) {
+        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Effectue une synchronisation intelligente (upsert) : ajoute les nouveaux enregistrements et met à jour les existants
+   * 
+   * @param records - Enregistrements à synchroniser
+   * @param options - Options de synchronisation (dryRun, uniqueKey)
+   * @returns Résultat de la synchronisation
+   */
+  async syncRecords(
+    records: Record<string, any>[],
+    options?: { dryRun?: boolean }
+  ): Promise<SyncResult | DryRunResult> {
+    if (!records || records.length === 0) {
+      throw new Error('Aucun enregistrement à synchroniser');
+    }
+    
+    const syncMode = this.config.syncMode || 'add';
+    const uniqueKey = this.config.uniqueKey;
+    const dryRun = options?.dryRun || false;
+    
+    // Si l'option autoCreateColumns est activée, créer les colonnes manquantes
+    if (this.config.autoCreateColumns !== false && !dryRun) {
+      await this.ensureColumnsExist(records);
+    }
+    
+    // Mode 'add' : ajouter uniquement les nouveaux enregistrements (comportement par défaut)
+    if (syncMode === 'add') {
+      if (dryRun) {
+        return {
+          toAdd: records,
+          toUpdate: [],
+          unchanged: [],
+          summary: {
+            totalRecords: records.length,
+            recordsToAdd: records.length,
+            recordsToUpdate: 0,
+            recordsUnchanged: 0
+          }
+        };
+      }
+      
+      const result = await this.addRecords(records);
+      return {
+        added: result.records.length,
+        updated: 0,
+        unchanged: 0,
+        errors: 0,
+        details: [`${result.records.length} enregistrement(s) ajouté(s)`]
+      };
+    }
+    
+    // Pour les modes 'update' et 'upsert', on a besoin d'une clé unique
+    if (!uniqueKey) {
+      throw new Error('Une clé unique (uniqueKey) est requise pour les modes "update" et "upsert"');
+    }
+    
+    this.log(`🔍 Récupération des enregistrements existants...`, 'info');
+    const existingRecords = await this.getRecords();
+    
+    // Crée une map des enregistrements existants par clé unique
+    const existingMap = new Map<any, GristRecord>();
+    for (const record of existingRecords) {
+      const keyValue = record.fields[uniqueKey];
+      if (keyValue !== undefined && keyValue !== null) {
+        existingMap.set(String(keyValue), record);
+      }
+    }
+    
+    this.log(`✓ ${existingMap.size} enregistrement(s) existant(s) trouvé(s)`, 'success');
+    
+    // Sépare les enregistrements en trois catégories
+    const toAdd: Record<string, any>[] = [];
+    const toUpdate: Array<{ id: number; fields: Record<string, any>; changes?: Record<string, { old: any; new: any }> }> = [];
+    const unchanged: Array<{ id: number; fields: Record<string, any> }> = [];
+    
+    for (const record of records) {
+      const keyValue = record[uniqueKey];
+      
+      if (keyValue === undefined || keyValue === null) {
+        // Pas de clé unique : on l'ignore ou on l'ajoute selon le mode
+        if (syncMode === 'upsert') {
+          toAdd.push(record);
+        }
+        continue;
+      }
+      
+      const existing = existingMap.get(String(keyValue));
+      
+      if (existing) {
+        // L'enregistrement existe déjà : vérifier s'il y a des changements
+        const changes: Record<string, { old: any; new: any }> = {};
+        let hasChanges = false;
+        
+        for (const [key, newValue] of Object.entries(record)) {
+          const oldValue = existing.fields[key];
+          // Compare les valeurs (conversion en string pour une comparaison simple)
+          if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+            changes[key] = { old: oldValue, new: newValue };
+            hasChanges = true;
+          }
+        }
+        
+        if (hasChanges) {
+          toUpdate.push({ id: existing.id, fields: record, changes });
+        } else {
+          unchanged.push({ id: existing.id, fields: record });
+        }
+      } else {
+        // L'enregistrement n'existe pas : l'ajouter si mode upsert
+        if (syncMode === 'upsert') {
+          toAdd.push(record);
+        }
+      }
+    }
+    
+    // Mode dry-run : retourner seulement les statistiques
+    if (dryRun) {
+      this.log(`📊 Dry-run terminé: ${toAdd.length} à ajouter, ${toUpdate.length} à mettre à jour, ${unchanged.length} inchangé(s)`, 'info');
+      return {
+        toAdd,
+        toUpdate,
+        unchanged,
+        summary: {
+          totalRecords: records.length,
+          recordsToAdd: toAdd.length,
+          recordsToUpdate: toUpdate.length,
+          recordsUnchanged: unchanged.length
+        }
+      };
+    }
+    
+    // Exécute les opérations
+    const result: SyncResult = {
+      added: 0,
+      updated: 0,
+      unchanged: unchanged.length,
+      errors: 0,
+      details: []
+    };
+    
+    // Ajoute les nouveaux enregistrements
+    if (toAdd.length > 0 && syncMode === 'upsert') {
+      this.log(`➕ Ajout de ${toAdd.length} nouvel(aux) enregistrement(s)...`, 'info');
+      try {
+        const addResult = await this.addRecords(toAdd);
+        result.added = addResult.records.length;
+        result.details.push(`${addResult.records.length} enregistrement(s) ajouté(s)`);
+        this.log(`✅ ${addResult.records.length} enregistrement(s) ajouté(s)`, 'success');
+      } catch (error) {
+        result.errors++;
+        result.details.push(`Erreur lors de l'ajout: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        this.log(`❌ Erreur lors de l'ajout`, 'error');
+      }
+    }
+    
+    // Met à jour les enregistrements existants
+    if (toUpdate.length > 0 && (syncMode === 'update' || syncMode === 'upsert')) {
+      this.log(`🔄 Mise à jour de ${toUpdate.length} enregistrement(s)...`, 'info');
+      try {
+        const updateCount = await this.updateRecords(toUpdate);
+        result.updated = updateCount;
+        result.details.push(`${updateCount} enregistrement(s) mis à jour`);
+        this.log(`✅ ${updateCount} enregistrement(s) mis à jour`, 'success');
+      } catch (error) {
+        result.errors++;
+        result.details.push(`Erreur lors de la mise à jour: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        this.log(`❌ Erreur lors de la mise à jour`, 'error');
+      }
+    }
+    
+    if (result.unchanged > 0) {
+      result.details.push(`${result.unchanged} enregistrement(s) inchangé(s)`);
+    }
+    
+    return result;
   }
 }
 
