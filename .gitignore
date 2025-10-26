@@ -18,6 +18,11 @@ public/test-data.json
 # Test coverage
 coverage
 
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 # Grist Docker data
 grist-data
 
