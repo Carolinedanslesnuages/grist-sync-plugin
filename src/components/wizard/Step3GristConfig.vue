@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import type { GristConfig } from '../../config';
 import { GristClient, parseGristUrl, isValidGristUrl } from '../../utils/grist';
+import { initializeGristWidget, applyGristInfoToConfig, isRunningInGrist } from '../../utils/gristWidget';
 
 
 interface Props {
@@ -25,6 +26,8 @@ const documentUrlInput = ref('');
 const urlParseError = ref('');
 const apiTokenValidation = ref<{ valid: boolean; message: string; needsAuth: boolean } | null>(null);
 const applyingProps = ref(false);
+const isEmbeddedInGrist = ref(false);
+const autoDetectedFields = ref<string[]>([]);
 
 watch(() => props.config, (newConfig) => {
   applyingProps.value = true;
@@ -197,6 +200,49 @@ async function testGristConnection() {
   }
 }
 
+// Auto-detect Grist configuration on component mount
+onMounted(async () => {
+  // Check if running within Grist as a Custom Widget
+  if (isRunningInGrist()) {
+    isEmbeddedInGrist.value = true;
+    emit('status', '🔍 Détection de l\'environnement Grist...', 'info');
+    
+    try {
+      const gristInfo = await initializeGristWidget();
+      
+      if (gristInfo.isInGrist) {
+        // Apply auto-detected values
+        const updatedConfig = applyGristInfoToConfig(localConfig.value, gristInfo);
+        
+        // Track which fields were auto-detected
+        autoDetectedFields.value = [];
+        if (gristInfo.docId) {
+          autoDetectedFields.value.push('Document ID');
+        }
+        if (gristInfo.gristApiUrl) {
+          autoDetectedFields.value.push('URL API Grist');
+        }
+        if (gristInfo.accessToken) {
+          autoDetectedFields.value.push('Token API');
+        }
+        
+        // Update local config
+        localConfig.value = updatedConfig;
+        
+        // Show success message
+        if (autoDetectedFields.value.length > 0) {
+          const fieldsStr = autoDetectedFields.value.join(', ');
+          emit('status', `✅ Configuration auto-détectée: ${fieldsStr}`, 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la détection automatique:', error);
+      emit('status', '⚠️ Impossible de détecter automatiquement la configuration Grist', 'info');
+      isEmbeddedInGrist.value = false;
+    }
+  }
+});
+
 watch(localConfig, (newVal) => {
   if (applyingProps.value) {
     apiTokenValidation.value = null; 
@@ -233,6 +279,22 @@ watch(localConfig, (newVal) => {
     </div>
 
     <div class="step-content">
+      <!-- Auto-detection status indicator -->
+      <DsfrCallout 
+        v-if="isEmbeddedInGrist && autoDetectedFields.length > 0" 
+        title="🎉 Configuration automatique détectée !"
+        type="success"
+        class="fr-mb-3w"
+      >
+        <p class="fr-text--sm">
+          Le plugin a détecté qu'il fonctionne dans un environnement Grist et a automatiquement 
+          configuré les champs suivants : <strong>{{ autoDetectedFields.join(', ') }}</strong>.
+        </p>
+        <p class="fr-text--sm fr-mb-0">
+          Vous pouvez modifier ces valeurs si nécessaire ou les conserver telles quelles.
+        </p>
+      </DsfrCallout>
+
       <DsfrFieldset legend="Informations de connexion Grist">
         <DsfrInputGroup>
           <DsfrInput
@@ -250,12 +312,22 @@ watch(localConfig, (newVal) => {
         </div>
 
         <DsfrInputGroup>
-          <DsfrInput
-            label="Document ID *"
-            v-model="localConfig.docId"
-            placeholder="Votre ID de document Grist"
-            hint="Visible dans l'URL de votre document Grist"
-          />
+          <div class="input-with-badge">
+            <DsfrInput
+              label="Document ID *"
+              v-model="localConfig.docId"
+              placeholder="Votre ID de document Grist"
+              hint="Visible dans l'URL de votre document Grist"
+            />
+            <DsfrBadge 
+              v-if="autoDetectedFields.includes('Document ID')" 
+              type="success" 
+              small
+              class="auto-detected-badge"
+            >
+              ✓ Auto-détecté
+            </DsfrBadge>
+          </div>
         </DsfrInputGroup>
 
         <DsfrInputGroup>
@@ -268,22 +340,42 @@ watch(localConfig, (newVal) => {
         </DsfrInputGroup>
 
         <DsfrInputGroup>
-          <DsfrInput
-            label="URL API Grist"
-            v-model="localConfig.gristApiUrl"
-            placeholder="https://docs.getgrist.com"
-            hint="URL de base de l'API Grist"
-          />
+          <div class="input-with-badge">
+            <DsfrInput
+              label="URL API Grist"
+              v-model="localConfig.gristApiUrl"
+              placeholder="https://docs.getgrist.com"
+              hint="URL de base de l'API Grist"
+            />
+            <DsfrBadge 
+              v-if="autoDetectedFields.includes('URL API Grist')" 
+              type="success" 
+              small
+              class="auto-detected-badge"
+            >
+              ✓ Auto-détecté
+            </DsfrBadge>
+          </div>
         </DsfrInputGroup>
 
         <DsfrInputGroup>
-          <DsfrInput
-            label="Token API Grist (optionnel)"
-            v-model="localConfig.apiTokenGrist"
-            type="password"
-            placeholder="Votre token Grist (si nécessaire)"
-            hint="Requis uniquement pour les documents privés"
-          />
+          <div class="input-with-badge">
+            <DsfrInput
+              label="Token API Grist (optionnel)"
+              v-model="localConfig.apiTokenGrist"
+              type="password"
+              placeholder="Votre token Grist (si nécessaire)"
+              hint="Requis uniquement pour les documents privés"
+            />
+            <DsfrBadge 
+              v-if="autoDetectedFields.includes('Token API')" 
+              type="success" 
+              small
+              class="auto-detected-badge"
+            >
+              ✓ Auto-détecté
+            </DsfrBadge>
+          </div>
         </DsfrInputGroup>
 
         <div v-if="localConfig.apiTokenGrist" class="fr-mb-3w api-token-info">
@@ -442,6 +534,17 @@ watch(localConfig, (newVal) => {
   right: 0;
   height: 1px;
   background: #e5e5e5;
+}
+
+.input-with-badge {
+  position: relative;
+}
+
+.auto-detected-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.75rem;
 }
 
 .api-token-info {
