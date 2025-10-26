@@ -57,6 +57,11 @@ const maskedApiToken = computed(() => {
   return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4);
 });
 
+// Check if in development mode
+const isDevelopmentMode = computed(() => {
+  return import.meta.env.DEV;
+});
+
 
 function extractDocAndTableIdFromSegments(segments: string[]): { docId?: string; tableId?: string } {
   const pIndex = segments.findIndex((s) => s === 'p');
@@ -296,6 +301,25 @@ watch(localConfig, (newVal) => {
     </div>
 
     <div class="step-content">
+      <!-- Debug info banner (visible in development) -->
+      <DsfrAlert
+        v-if="isDevelopmentMode"
+        type="info"
+        :title="`🔍 Environnement Grist: ${isEmbeddedInGrist ? 'Détecté' : 'Non détecté'}`"
+        class="fr-mb-3w debug-banner"
+        small
+      >
+        <p class="fr-text--sm fr-mb-1w">
+          <strong>Statut de détection:</strong> {{ isEmbeddedInGrist ? '✅ Widget intégré dans Grist' : '❌ Exécution autonome' }}
+        </p>
+        <p v-if="isEmbeddedInGrist" class="fr-text--sm fr-mb-0">
+          <strong>Champs détectés:</strong> {{ autoDetectedFields.length > 0 ? autoDetectedFields.join(', ') : 'Aucun (en cours...)' }}
+        </p>
+        <p class="fr-text--xs fr-mb-0" style="opacity: 0.7; margin-top: 0.5rem;">
+          <em>Ce message n'apparaît qu'en mode développement. Consultez la console du navigateur pour plus de détails.</em>
+        </p>
+      </DsfrAlert>
+
       <!-- Auto-detection status indicator -->
       <DsfrCallout 
         v-if="isEmbeddedInGrist && autoDetectedFields.length > 0" 
@@ -311,6 +335,16 @@ watch(localConfig, (newVal) => {
           Vous pouvez modifier ces valeurs si nécessaire ou les conserver telles quelles.
         </p>
       </DsfrCallout>
+
+      <!-- Show info banner when in Grist but waiting for detection -->
+      <DsfrNotice 
+        v-if="isEmbeddedInGrist && autoDetectedFields.length === 0"
+        title="⏳ Détection en cours..."
+        class="fr-mb-3w"
+      >
+        Le plugin tente de détecter automatiquement votre configuration Grist.
+        Consultez la console du navigateur (F12) pour les détails de détection.
+      </DsfrNotice>
 
       <DsfrFieldset legend="Informations de connexion Grist">
         <DsfrInputGroup>
@@ -525,6 +559,11 @@ watch(localConfig, (newVal) => {
 
 .step-content {
   max-width: 800px;
+}
+
+.debug-banner {
+  border-left: 4px solid #0063cb !important;
+  background-color: #e8edff !important;
 }
 
 .separator-text {
