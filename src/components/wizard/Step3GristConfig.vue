@@ -62,23 +62,6 @@ const isDevelopmentMode = computed(() => {
   return import.meta.env.DEV;
 });
 
-// Compute the environment detection title
-const environmentDetectionTitle = computed(() => {
-  return `🔍 Environnement Grist: ${isEmbeddedInGrist.value ? 'Détecté' : 'Non détecté'}`;
-});
-
-// Compute the detection status message
-const detectionStatusMessage = computed(() => {
-  return isEmbeddedInGrist.value ? '✅ Widget intégré dans Grist' : '❌ Exécution autonome';
-});
-
-// Compute the detected fields message
-const detectedFieldsMessage = computed(() => {
-  return autoDetectedFields.value.length > 0 
-    ? autoDetectedFields.value.join(', ') 
-    : 'Aucun (en cours...)';
-});
-
 
 function extractDocAndTableIdFromSegments(segments: string[]): { docId?: string; tableId?: string } {
   const pIndex = segments.findIndex((s) => s === 'p');
@@ -322,17 +305,17 @@ watch(localConfig, (newVal) => {
       <DsfrAlert
         v-if="isDevelopmentMode"
         type="info"
-        :title="environmentDetectionTitle"
+        :title="`🔍 Environnement Grist: ${isEmbeddedInGrist ? 'Détecté' : 'Non détecté'}`"
         class="fr-mb-3w debug-banner"
         small
       >
         <p class="fr-text--sm fr-mb-1w">
-          <strong>Statut de détection:</strong> {{ detectionStatusMessage }}
+          <strong>Statut de détection:</strong> {{ isEmbeddedInGrist ? '✅ Widget intégré dans Grist' : '❌ Exécution autonome' }}
         </p>
         <p v-if="isEmbeddedInGrist" class="fr-text--sm fr-mb-0">
-          <strong>Champs détectés:</strong> {{ detectedFieldsMessage }}
+          <strong>Champs détectés:</strong> {{ autoDetectedFields.length > 0 ? autoDetectedFields.join(', ') : 'Aucun (en cours...)' }}
         </p>
-        <p class="fr-text--xs fr-mb-0 debug-info-text">
+        <p class="fr-text--xs fr-mb-0" style="opacity: 0.7; margin-top: 0.5rem;">
           <em>Ce message n'apparaît qu'en mode développement. Consultez la console du navigateur pour plus de détails.</em>
         </p>
       </DsfrAlert>
@@ -581,11 +564,6 @@ watch(localConfig, (newVal) => {
 .debug-banner {
   border-left: 4px solid #0063cb !important;
   background-color: #e8edff !important;
-}
-
-.debug-info-text {
-  opacity: 0.7;
-  margin-top: 0.5rem;
 }
 
 .separator-text {
