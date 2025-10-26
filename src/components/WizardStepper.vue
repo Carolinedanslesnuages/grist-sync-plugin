@@ -153,6 +153,8 @@ onBeforeUnmount(() => {
           :apiData="apiData"
           :sampleRecord="sampleRecord"
           v-model:mappings="mappings"
+          :gristConfig="gristConfig"
+          @status="showStatus"
         />
         <Step3GristConfig
           v-else-if="currentStep === 3"

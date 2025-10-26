@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import MappingTable from '../MappingTable.vue';
 import type { FieldMapping } from '../../utils/mapping';
 import { getValidMappings } from '../../utils/mapping';
+import type { GristConfig } from '../../config';
+import { GristClient } from '../../utils/grist';
 
 /**
  * Step 2: Aperçu, sélection et mapping dynamique des champs
@@ -12,10 +14,12 @@ interface Props {
   apiData: any[];
   sampleRecord?: Record<string, any>;
   mappings: FieldMapping[];
+  gristConfig?: GristConfig;
 }
 
 interface Emits {
   (e: 'update:mappings', value: FieldMapping[]): void;
+  (e: 'status', message: string, type: 'success' | 'error' | 'info'): void;
 }
 
 const props = defineProps<Props>();
@@ -23,10 +27,46 @@ const emit = defineEmits<Emits>();
 
 const recordCount = computed(() => props.apiData.length);
 const validMappingsCount = computed(() => getValidMappings(props.mappings).length);
+const existingGristColumns = ref<string[]>([]);
+const isLoadingColumns = ref(false);
 
 function handleMappingUpdate(newMappings: FieldMapping[]) {
   emit('update:mappings', newMappings);
 }
+
+/**
+ * Récupère les colonnes existantes dans Grist
+ */
+async function fetchExistingColumns() {
+  // Ne charge que si on a une config Grist valide
+  if (!props.gristConfig?.docId || !props.gristConfig?.tableId || !props.gristConfig?.gristApiUrl) {
+    return;
+  }
+  
+  isLoadingColumns.value = true;
+  
+  try {
+    const client = new GristClient(props.gristConfig);
+    const columns = await client.getColumns();
+    existingGristColumns.value = columns.map(col => col.fields.colId);
+    
+    if (existingGristColumns.value.length > 0) {
+      emit('status', `✓ ${existingGristColumns.value.length} colonne(s) existante(s) trouvée(s) dans Grist`, 'success');
+    }
+  } catch (error) {
+    // Silencieux - pas critique si on ne peut pas récupérer les colonnes
+    console.warn('Impossible de récupérer les colonnes existantes:', error);
+  } finally {
+    isLoadingColumns.value = false;
+  }
+}
+
+// Charge les colonnes existantes quand la config Grist change
+watch(() => props.gristConfig, () => {
+  if (props.gristConfig) {
+    fetchExistingColumns();
+  }
+}, { immediate: true, deep: true });
 </script>
 
 <template>
@@ -80,10 +120,39 @@ function handleMappingUpdate(newMappings: FieldMapping[]) {
       <!-- Table de mapping -->
       <div class="fr-mb-4w">
         <h3 class="fr-h6">🔗 Configuration du mapping</h3>
+        
+        <!-- Indicateur de chargement des colonnes -->
+        <div v-if="isLoadingColumns" class="fr-mb-2w">
+          <DsfrNotice
+            title="Chargement des colonnes existantes..."
+            :closeable="false"
+          >
+            Récupération des colonnes de votre table Grist...
+          </DsfrNotice>
+        </div>
+        
+        <!-- Info sur les colonnes existantes trouvées -->
+        <div v-else-if="existingGristColumns.length > 0" class="fr-mb-2w">
+          <DsfrCallout
+            type="info"
+            title="📋 Colonnes existantes dans Grist"
+          >
+            <p class="fr-text--sm">
+              {{ existingGristColumns.length }} colonne(s) existante(s) détectée(s) : 
+              <code v-for="col in existingGristColumns.slice(0, 5)" :key="col" class="fr-code">{{ col }}</code>
+              <span v-if="existingGristColumns.length > 5">...</span>
+            </p>
+            <p class="fr-text--sm fr-mt-1w">
+              💡 Utilisez ces noms exacts dans vos mappings pour éviter de créer des colonnes en double.
+            </p>
+          </DsfrCallout>
+        </div>
+        
         <MappingTable 
           :model-value="mappings" 
           @update:model-value="handleMappingUpdate"
-          :sample-data="sampleRecord" 
+          :sample-data="sampleRecord"
+          :existing-grist-columns="existingGristColumns"
         />
         
         <div class="fr-mt-2w">
