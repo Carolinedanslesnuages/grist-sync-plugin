@@ -1,9 +1,14 @@
 /**
  * Exemple de configuration pour tester le plugin avec Grist local
  * 
- * Copiez ce fichier dans src/config.ts et adaptez-le à votre environnement.
+ * Ce fichier sert de référence. Pour l'utiliser:
+ * 1. Copiez le contenu souhaité
+ * 2. Collez-le dans src/config.ts
+ * 3. Adaptez les valeurs à votre environnement
  */
 
+// Note: L'import ci-dessous suppose que ce code est dans src/config.ts
+// Si vous utilisez ce fichier comme référence, adaptez le chemin d'import si nécessaire
 import type { GristConfig } from './config';
 
 /**
