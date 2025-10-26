@@ -185,10 +185,24 @@ describe('transformRecord', () => {
     });
   });
 
-  it('devrait ignorer les mappings avec des champs manquants', () => {
+  it('devrait créer des colonnes personnalisées avec valeur null quand apiField est vide', () => {
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'Name', apiField: 'name' },
+      { gristColumn: 'CustomColumn', apiField: '' },
+      { gristColumn: 'Email', apiField: 'email' }
+    ];
+
+    const result = transformRecord(apiRecord, mappings);
+    expect(result).toEqual({
+      Name: 'Alice',
+      CustomColumn: null,
+      Email: 'alice@example.com'
+    });
+  });
+
+  it('devrait ignorer les mappings sans gristColumn', () => {
     const mappings: FieldMapping[] = [
       { gristColumn: '', apiField: 'name' },
-      { gristColumn: 'Name', apiField: '' },
       { gristColumn: 'Email', apiField: 'email' }
     ];
 
@@ -261,7 +275,7 @@ describe('transformRecords', () => {
 });
 
 describe('isValidMapping', () => {
-  it('devrait valider un mapping correct', () => {
+  it('devrait valider un mapping correct avec les deux champs', () => {
     const mapping: FieldMapping = {
       gristColumn: 'Name',
       apiField: 'name'
@@ -277,12 +291,12 @@ describe('isValidMapping', () => {
     expect(isValidMapping(mapping)).toBe(false);
   });
 
-  it('devrait invalider un mapping sans apiField', () => {
+  it('devrait valider un mapping avec seulement gristColumn (colonne personnalisée)', () => {
     const mapping: FieldMapping = {
-      gristColumn: 'Name',
+      gristColumn: 'CustomColumn',
       apiField: ''
     };
-    expect(isValidMapping(mapping)).toBe(false);
+    expect(isValidMapping(mapping)).toBe(true);
   });
 
   it('devrait invalider un mapping sans les deux champs', () => {
@@ -306,6 +320,7 @@ describe('getValidMappings', () => {
     const result = getValidMappings(mappings);
     expect(result).toEqual([
       { gristColumn: 'Name', apiField: 'name' },
+      { gristColumn: 'Age', apiField: '' },
       { gristColumn: 'Score', apiField: 'score' }
     ]);
   });
@@ -313,7 +328,7 @@ describe('getValidMappings', () => {
   it('devrait retourner un tableau vide si aucun mapping n\'est valide', () => {
     const mappings: FieldMapping[] = [
       { gristColumn: '', apiField: 'name' },
-      { gristColumn: 'Age', apiField: '' }
+      { gristColumn: '', apiField: 'email' }
     ];
 
     const result = getValidMappings(mappings);
@@ -396,7 +411,7 @@ describe('generateMappingsFromApiData', () => {
     const result = generateMappingsFromApiData(sampleData);
 
     expect(result).toEqual([
-      { apiField: 'id', gristColumn: 'id', enabled: true },
+      { apiField: 'id', gristColumn: 'api_id', enabled: true },
       { apiField: 'name', gristColumn: 'name', enabled: true },
       { apiField: 'email', gristColumn: 'email', enabled: true }
     ]);
