@@ -10,6 +10,16 @@ Le plugin peut désormais **détecter automatiquement** l'URL et le token d'API 
 
 📖 **Consultez le [guide d'auto-détection](docs/AUTO_DETECTION.md)** pour plus de détails.
 
+## 🔗 Formats d'URL Grist supportés
+
+Le plugin supporte plusieurs formats d'URL Grist pour faciliter la configuration :
+- Format standard : `https://docs.getgrist.com/doc/{docId}`
+- Format path-style : `https://docs.getgrist.com/d/{docId}`
+- Avec table ID : `https://docs.getgrist.com/doc/{docId}/p/{tableId}`
+- Et bien d'autres formats...
+
+📖 **Consultez le [guide des formats d'URL](docs/URL_FORMATS.md)** pour la liste complète.
+
 ---
 
 ## 🚀 Pour les développeurs
