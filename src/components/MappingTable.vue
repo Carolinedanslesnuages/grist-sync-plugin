@@ -75,7 +75,7 @@ function autoGenerateMappings() {
   // Si on a des colonnes existantes, essaie de faire correspondre automatiquement
   if (props.existingGristColumns && props.existingGristColumns.length > 0) {
     // Filtrer les valeurs undefined/null et créer un tableau parallèle avec les valeurs en minuscules
-    const validColumns = props.existingGristColumns.filter(col => col != null && col !== '');
+    const validColumns = props.existingGristColumns.filter(col => col !== null && col !== undefined && col !== '' && typeof col === 'string');
     const existingColumnsLower = validColumns.map(col => col.toLowerCase());
     
     // Pour chaque mapping généré, vérifie s'il existe une colonne similaire
