@@ -18,6 +18,9 @@ public/test-data.json
 # Test coverage
 coverage
 
+# Grist Docker data
+grist-data
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
