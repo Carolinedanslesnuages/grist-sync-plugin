@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import MappingTable from './MappingTable.vue';
 import type { FieldMapping } from '../utils/mapping';
 import { transformRecords, getValidMappings } from '../utils/mapping';
@@ -8,6 +8,7 @@ import { defaultConfig } from '../config';
 import type { GristConfig } from '../config';
 import { analyzeError, formatErrorShort } from '../utils/errorHandler';
 import type { ErrorInfo } from '../utils/errorHandler';
+import { initializeGristWidget, applyGristInfoToConfig } from '../utils/gristWidget';
 
 
 
@@ -193,6 +194,38 @@ async function testGristConnection() {
 const recordCount = computed(() => apiData.value.length);
 
 const validMappingsCount = computed(() => getValidMappings(mappings.value).length);
+
+// Initialize Grist widget detection on component mount
+onMounted(async () => {
+  console.log('[ApiToGrist] Component mounted, initializing Grist widget detection...');
+  try {
+    const gristInfo = await initializeGristWidget();
+    
+    if (gristInfo.isInGrist) {
+      console.log('[ApiToGrist] Grist environment detected, applying configuration...');
+      const updatedConfig = applyGristInfoToConfig(gristConfig.value, gristInfo);
+      gristConfig.value = updatedConfig;
+      
+      // Show a success message if any values were detected
+      const detectedFields: string[] = [];
+      if (gristInfo.docId) detectedFields.push('Document ID');
+      if (gristInfo.gristApiUrl) detectedFields.push('API URL');
+      if (gristInfo.accessToken) detectedFields.push('Access Token');
+      
+      if (detectedFields.length > 0) {
+        showStatus(
+          `✅ Configuration Grist détectée automatiquement: ${detectedFields.join(', ')}`,
+          'success'
+        );
+      }
+    } else {
+      console.log('[ApiToGrist] Not running in Grist environment, manual configuration required');
+    }
+  } catch (error) {
+    console.error('[ApiToGrist] Error during Grist widget initialization:', error);
+  }
+});
+
 </script>
 
 <template>

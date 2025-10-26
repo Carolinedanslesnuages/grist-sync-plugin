@@ -23,6 +23,18 @@ describe('gristWidget', () => {
     if (typeof (global as any).grist !== 'undefined') {
       delete (global as any).grist;
     }
+    // Clean up document.referrer
+    Object.defineProperty(document, 'referrer', {
+      value: '',
+      writable: true,
+      configurable: true,
+    });
+    // Clean up window.parent
+    Object.defineProperty(window, 'parent', {
+      value: window,
+      writable: true,
+      configurable: true,
+    });
   });
 
   describe('isRunningInGrist', () => {
@@ -100,6 +112,82 @@ describe('gristWidget', () => {
       const result = await initializeGristWidget();
       
       expect(result.accessToken).toBe(mockToken);
+    });
+
+    it('devrait détecter le docId depuis le referrer quand dans une iframe', async () => {
+      (window as any).grist = mockGrist;
+      
+      // Mock current window location (widget URL, no docId)
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'https://widget.example.com',
+          pathname: '/widget',
+        },
+        writable: true,
+      });
+      
+      // Mock document.referrer with parent document URL
+      Object.defineProperty(document, 'referrer', {
+        value: 'http://localhost:8484/doc/parent-doc-id',
+        writable: true,
+        configurable: true,
+      });
+
+      const result = await initializeGristWidget();
+      
+      expect(result.isInGrist).toBe(true);
+      expect(result.docId).toBe('parent-doc-id');
+      expect(result.gristApiUrl).toBe('http://localhost:8484');
+    });
+
+    it('devrait supporter les URLs avec organisation /o/ORG/doc/DOC_ID', async () => {
+      (window as any).grist = mockGrist;
+      
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'https://docs.getgrist.com',
+          pathname: '/o/my-org/doc/org-doc-id',
+        },
+        writable: true,
+      });
+
+      const result = await initializeGristWidget();
+      
+      expect(result.isInGrist).toBe(true);
+      expect(result.docId).toBe('org-doc-id');
+      expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    });
+
+    it('devrait détecter depuis parent window quand accessible', async () => {
+      (window as any).grist = mockGrist;
+      
+      // Mock current window location (widget URL)
+      Object.defineProperty(window, 'location', {
+        value: {
+          origin: 'https://widget.example.com',
+          pathname: '/widget',
+        },
+        writable: true,
+      });
+      
+      // Mock parent window location
+      const mockParent = {
+        location: {
+          origin: 'http://localhost:8484',
+          pathname: '/doc/from-parent-window',
+        }
+      };
+      Object.defineProperty(window, 'parent', {
+        value: mockParent,
+        writable: true,
+        configurable: true,
+      });
+
+      const result = await initializeGristWidget();
+      
+      expect(result.isInGrist).toBe(true);
+      expect(result.docId).toBe('from-parent-window');
+      expect(result.gristApiUrl).toBe('http://localhost:8484');
     });
   });
 
