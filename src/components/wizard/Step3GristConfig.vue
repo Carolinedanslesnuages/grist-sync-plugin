@@ -301,8 +301,50 @@ watch(localConfig, (newVal) => {
             </div>
           </DsfrCallout>
         </div>
+      </DsfrFieldset>
 
-        <div class="fr-mt-4w">
+      <DsfrFieldset legend="Options de synchronisation" class="fr-mt-4w">
+        <DsfrInputGroup>
+          <DsfrSelect
+            label="Mode de synchronisation"
+            v-model="localConfig.syncMode"
+            :options="[
+              { text: 'Ajouter uniquement (add)', value: 'add' },
+              { text: 'Mettre à jour uniquement (update)', value: 'update' },
+              { text: 'Ajouter et mettre à jour (upsert)', value: 'upsert' }
+            ]"
+            hint="Choisissez comment synchroniser les données avec Grist"
+          />
+        </DsfrInputGroup>
+
+        <DsfrInputGroup v-if="localConfig.syncMode === 'update' || localConfig.syncMode === 'upsert'">
+          <DsfrInput
+            label="Colonne unique (uniqueKey)"
+            v-model="localConfig.uniqueKey"
+            placeholder="api_id"
+            hint="Nom de la colonne utilisée pour identifier les enregistrements existants (ex: api_id, Email, ID)"
+          />
+        </DsfrInputGroup>
+
+        <DsfrCheckbox
+          v-model="localConfig.autoCreateColumns"
+          label="Créer automatiquement les colonnes manquantes"
+          hint="Si activé, les colonnes manquantes dans Grist seront créées automatiquement"
+        />
+
+        <div class="fr-mt-2w">
+          <DsfrCallout title="ℹ️ À propos des modes de synchronisation" type="info">
+            <ul class="fr-text--sm">
+              <li><strong>Ajouter uniquement (add) :</strong> Ajoute uniquement de nouveaux enregistrements. Les enregistrements existants ne sont pas modifiés.</li>
+              <li><strong>Mettre à jour uniquement (update) :</strong> Met à jour uniquement les enregistrements existants basés sur la clé unique. Ne crée pas de nouveaux enregistrements.</li>
+              <li><strong>Ajouter et mettre à jour (upsert) :</strong> Ajoute les nouveaux enregistrements ET met à jour les existants. Nécessite une colonne unique.</li>
+            </ul>
+          </DsfrCallout>
+        </div>
+      </DsfrFieldset>
+
+      <div class="fr-mt-4w">
+        <DsfrFieldset legend="Test de connexion">
           <DsfrButton
             label="Tester la connexion"
             icon="ri-plug-line"
@@ -317,8 +359,8 @@ watch(localConfig, (newVal) => {
           >
             ✓ Connexion testée
           </DsfrBadge>
-        </div>
-      </DsfrFieldset>
+        </DsfrFieldset>
+      </div>
 
       <div class="fr-mt-4w">
         <DsfrCallout title="📖 Comment trouver ces informations ?">
@@ -333,6 +375,10 @@ watch(localConfig, (newVal) => {
             <li>
               <strong>Token API :</strong> Créez un token dans les paramètres de votre profil Grist 
               (requis pour les documents privés)
+            </li>
+            <li>
+              <strong>Colonne unique :</strong> Une colonne dans votre table Grist qui contient des valeurs uniques 
+              pour identifier chaque enregistrement (ex: api_id, Email, ID)
             </li>
           </ul>
         </DsfrCallout>

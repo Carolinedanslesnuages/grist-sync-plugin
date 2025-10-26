@@ -519,4 +519,340 @@ describe('GristClient', () => {
       await expect(client.addRecords([{ Name: 'Test' }])).rejects.toThrow();
     });
   });
+
+  describe('updateRecords', () => {
+    it('devrait mettre à jour des enregistrements existants', async () => {
+      const mockResponse = {
+        ok: true,
+        json: async () => ({})
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const client = new GristClient(mockConfig);
+      const updates = [
+        { id: 1, fields: { Name: 'Alice Updated', Email: 'alice@example.com' } },
+        { id: 2, fields: { Name: 'Bob Updated', Email: 'bob@example.com' } }
+      ];
+
+      const result = await client.updateRecords(updates);
+
+      expect(result).toBe(2);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/records'),
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer test-token'
+          })
+        })
+      );
+    });
+
+    it('devrait construire le bon payload pour la mise à jour', async () => {
+      const mockResponse = {
+        ok: true,
+        json: async () => ({})
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const client = new GristClient(mockConfig);
+      const updates = [
+        { id: 1, fields: { Name: 'Alice Updated' } }
+      ];
+
+      await client.updateRecords(updates);
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+
+      expect(body).toEqual({
+        records: [
+          {
+            id: 1,
+            fields: { Name: 'Alice Updated' }
+          }
+        ]
+      });
+    });
+
+    it('devrait retourner 0 si aucun enregistrement à mettre à jour', async () => {
+      const client = new GristClient(mockConfig);
+
+      const result = await client.updateRecords([]);
+
+      expect(result).toBe(0);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('devrait gérer les erreurs HTTP', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        text: async () => 'Not Found'
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const client = new GristClient(mockConfig);
+      const updates = [{ id: 1, fields: { Name: 'Test' } }];
+
+      await expect(client.updateRecords(updates)).rejects.toThrow();
+    });
+  });
+
+  describe('syncRecords - mode add', () => {
+    it('devrait ajouter tous les enregistrements en mode add', async () => {
+      const mockResponse = {
+        ok: true,
+        json: async () => ({ records: [{ id: 1 }, { id: 2 }] })
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const configAddMode = { ...mockConfig, syncMode: 'add' as const, autoCreateColumns: false };
+      const client = new GristClient(configAddMode);
+      const records = [
+        { Name: 'Alice', Email: 'alice@example.com' },
+        { Name: 'Bob', Email: 'bob@example.com' }
+      ];
+
+      const result = await client.syncRecords(records);
+
+      expect('added' in result).toBe(true);
+      if ('added' in result) {
+        expect(result.added).toBe(2);
+        expect(result.updated).toBe(0);
+        expect(result.unchanged).toBe(0);
+      }
+    });
+
+    it('devrait supporter le dry-run en mode add', async () => {
+      const client = new GristClient({ ...mockConfig, syncMode: 'add' as const });
+      const records = [
+        { Name: 'Alice', Email: 'alice@example.com' },
+        { Name: 'Bob', Email: 'bob@example.com' }
+      ];
+
+      const result = await client.syncRecords(records, { dryRun: true });
+
+      expect('toAdd' in result).toBe(true);
+      if ('toAdd' in result) {
+        expect(result.toAdd.length).toBe(2);
+        expect(result.toUpdate.length).toBe(0);
+        expect(result.summary.recordsToAdd).toBe(2);
+      }
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('syncRecords - mode upsert', () => {
+    it('devrait ajouter de nouveaux enregistrements et mettre à jour les existants', async () => {
+      // Mock getRecords pour retourner des enregistrements existants
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { api_id: 'user1', Name: 'Alice', Email: 'alice@old.com' } },
+            { id: 2, fields: { api_id: 'user2', Name: 'Bob', Email: 'bob@example.com' } }
+          ]
+        })
+      };
+      
+      // Mock addRecords pour les nouveaux enregistrements
+      const mockAddResponse = {
+        ok: true,
+        json: async () => ({ records: [{ id: 3 }] })
+      };
+      
+      // Mock updateRecords
+      const mockUpdateResponse = {
+        ok: true,
+        json: async () => ({})
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetResponse)  // getRecords
+        .mockResolvedValueOnce(mockAddResponse)  // addRecords
+        .mockResolvedValueOnce(mockUpdateResponse); // updateRecords
+
+      const configUpsertMode = {
+        ...mockConfig,
+        syncMode: 'upsert' as const,
+        uniqueKey: 'api_id',
+        autoCreateColumns: false
+      };
+      const client = new GristClient(configUpsertMode);
+      const records = [
+        { api_id: 'user1', Name: 'Alice', Email: 'alice@new.com' }, // Update
+        { api_id: 'user2', Name: 'Bob', Email: 'bob@example.com' }, // Unchanged
+        { api_id: 'user3', Name: 'Charlie', Email: 'charlie@example.com' } // Add
+      ];
+
+      const result = await client.syncRecords(records);
+
+      expect('added' in result).toBe(true);
+      if ('added' in result) {
+        expect(result.added).toBe(1);
+        expect(result.updated).toBe(1);
+        expect(result.unchanged).toBe(1);
+      }
+    });
+
+    it('devrait échouer si uniqueKey n\'est pas fourni en mode upsert', async () => {
+      const configWithoutKey = { ...mockConfig, syncMode: 'upsert' as const };
+      const client = new GristClient(configWithoutKey);
+      const records = [{ Name: 'Alice' }];
+
+      await expect(client.syncRecords(records)).rejects.toThrow('clé unique');
+    });
+
+    it('devrait supporter le dry-run en mode upsert', async () => {
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { api_id: 'user1', Name: 'Alice', Email: 'alice@old.com' } }
+          ]
+        })
+      };
+
+      mockFetch.mockResolvedValueOnce(mockGetResponse);
+
+      const configUpsertMode = {
+        ...mockConfig,
+        syncMode: 'upsert' as const,
+        uniqueKey: 'api_id'
+      };
+      const client = new GristClient(configUpsertMode);
+      const records = [
+        { api_id: 'user1', Name: 'Alice', Email: 'alice@new.com' }, // Update
+        { api_id: 'user2', Name: 'Bob', Email: 'bob@example.com' } // Add
+      ];
+
+      const result = await client.syncRecords(records, { dryRun: true });
+
+      expect('toAdd' in result).toBe(true);
+      if ('toAdd' in result) {
+        expect(result.toAdd.length).toBe(1);
+        expect(result.toUpdate.length).toBe(1);
+        expect(result.summary.recordsToAdd).toBe(1);
+        expect(result.summary.recordsToUpdate).toBe(1);
+      }
+      
+      // Doit avoir appelé seulement getRecords, pas addRecords ou updateRecords
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('devrait détecter les changements correctement', async () => {
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { api_id: 'user1', Name: 'Alice', Email: 'alice@example.com' } }
+          ]
+        })
+      };
+
+      mockFetch.mockResolvedValueOnce(mockGetResponse);
+
+      const configUpsertMode = {
+        ...mockConfig,
+        syncMode: 'upsert' as const,
+        uniqueKey: 'api_id'
+      };
+      const client = new GristClient(configUpsertMode);
+      const records = [
+        { api_id: 'user1', Name: 'Alice', Email: 'alice@example.com' } // Identique, pas de changement
+      ];
+
+      const result = await client.syncRecords(records, { dryRun: true });
+
+      expect('toAdd' in result).toBe(true);
+      if ('toAdd' in result) {
+        expect(result.toAdd.length).toBe(0);
+        expect(result.toUpdate.length).toBe(0);
+        expect(result.unchanged.length).toBe(1);
+      }
+    });
+
+    it('devrait gérer les enregistrements sans clé unique', async () => {
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { api_id: 'user1', Name: 'Alice' } }
+          ]
+        })
+      };
+
+      mockFetch.mockResolvedValueOnce(mockGetResponse);
+
+      const configUpsertMode = {
+        ...mockConfig,
+        syncMode: 'upsert' as const,
+        uniqueKey: 'api_id'
+      };
+      const client = new GristClient(configUpsertMode);
+      const records = [
+        { Name: 'Bob' } // Pas de api_id
+      ];
+
+      const result = await client.syncRecords(records, { dryRun: true });
+
+      expect('toAdd' in result).toBe(true);
+      if ('toAdd' in result) {
+        // L'enregistrement sans clé unique est ajouté
+        expect(result.toAdd.length).toBe(1);
+      }
+    });
+  });
+
+  describe('syncRecords - mode update', () => {
+    it('devrait uniquement mettre à jour les enregistrements existants', async () => {
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { api_id: 'user1', Name: 'Alice', Email: 'alice@old.com' } }
+          ]
+        })
+      };
+      
+      const mockUpdateResponse = {
+        ok: true,
+        json: async () => ({})
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetResponse)
+        .mockResolvedValueOnce(mockUpdateResponse);
+
+      const configUpdateMode = {
+        ...mockConfig,
+        syncMode: 'update' as const,
+        uniqueKey: 'api_id',
+        autoCreateColumns: false
+      };
+      const client = new GristClient(configUpdateMode);
+      const records = [
+        { api_id: 'user1', Name: 'Alice', Email: 'alice@new.com' }, // Update
+        { api_id: 'user3', Name: 'Charlie', Email: 'charlie@example.com' } // Ne sera pas ajouté
+      ];
+
+      const result = await client.syncRecords(records);
+
+      expect('added' in result).toBe(true);
+      if ('added' in result) {
+        expect(result.added).toBe(0); // Aucun ajout en mode update
+        expect(result.updated).toBe(1);
+      }
+    });
+
+    it('devrait échouer si uniqueKey n\'est pas fourni en mode update', async () => {
+      const configWithoutKey = { ...mockConfig, syncMode: 'update' as const };
+      const client = new GristClient(configWithoutKey);
+      const records = [{ Name: 'Alice' }];
+
+      await expect(client.syncRecords(records)).rejects.toThrow('clé unique');
+    });
+  });
 });
