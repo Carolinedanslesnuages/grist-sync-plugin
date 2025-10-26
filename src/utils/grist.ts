@@ -115,20 +115,24 @@ export interface DryRunResult {
 export interface ParsedGristUrl {
   docId: string | null;
   gristApiUrl: string | null;
+  tableId?: string | null;
 }
 
 /**
- * Parse une URL de document Grist pour extraire le docId et l'URL de base
+ * Parse une URL de document Grist pour extraire le docId, l'URL de base et le tableId
  * 
  * @param url - L'URL complète du document Grist
- * @returns Un objet contenant le docId et l'URL de base de l'API
+ * @returns Un objet contenant le docId, l'URL de base de l'API et optionnellement le tableId
  * 
  * @example
  * parseGristUrl('https://docs.getgrist.com/doc/abc123xyz')
  * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com' }
  * 
  * parseGristUrl('https://grist.example.com/o/myorg/doc/myDocId/p/5')
- * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com' }
+ * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com', tableId: '5' }
+ * 
+ * parseGristUrl('https://docs.getgrist.com/doc/abc123/p/MyTable')
+ * // { docId: 'abc123', gristApiUrl: 'https://docs.getgrist.com', tableId: 'MyTable' }
  */
 export function parseGristUrl(url: string): ParsedGristUrl {
   try {
@@ -140,10 +144,19 @@ export function parseGristUrl(url: string): ParsedGristUrl {
     const docMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
     
     if (docMatch && docMatch[1]) {
-      return {
+      const result: ParsedGristUrl = {
         docId: docMatch[1],
         gristApiUrl: baseUrl
       };
+      
+      // Recherche du tableId dans le chemin de l'URL
+      // Format typique: /doc/{docId}/p/{tableId}
+      const tableMatch = urlObj.pathname.match(/\/doc\/[^\/]+\/p\/([^\/\?#]+)/);
+      if (tableMatch && tableMatch[1]) {
+        result.tableId = tableMatch[1];
+      }
+      
+      return result;
     }
     
     return { docId: null, gristApiUrl: null };
