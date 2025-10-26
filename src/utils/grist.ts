@@ -154,8 +154,8 @@ export function parseGristUrl(url: string): ParsedGristUrl {
     // Format court: /d/{docId}/t/{tableId}/
     const shortFormatMatch = urlObj.pathname.match(/\/d\/([^\/\?#]+)\/t\/([^\/\?#]+)/);
     if (shortFormatMatch) {
-      docId = shortFormatMatch[1] || null;
-      tableId = shortFormatMatch[2] || null;
+      docId = shortFormatMatch[1] ?? null;
+      tableId = shortFormatMatch[2] ?? null;
       return {
         docId,
         gristApiUrl: baseUrl,
@@ -192,7 +192,7 @@ export function parseGristUrl(url: string): ParsedGristUrl {
       return {
         docId,
         gristApiUrl: baseUrl,
-        tableId: tableId || null
+        tableId
       };
     }
     
