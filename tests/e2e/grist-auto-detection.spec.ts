@@ -193,7 +193,7 @@ test.describe('Auto-détection Grist via query params', () => {
     const docIdValue = await docIdInput.inputValue();
     
     // La valeur devrait être vide ou "YOUR_DOC_ID" (valeur par défaut)
-    expect(docIdValue === '' || docIdValue === 'YOUR_DOC_ID').toBeTruthy();
+    expect(['', 'YOUR_DOC_ID']).toContain(docIdValue);
   });
 });
 
