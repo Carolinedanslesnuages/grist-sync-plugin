@@ -119,19 +119,28 @@ export function transformRecord(apiRecord: any, mappings: FieldMapping[]): Recor
   const gristRecord: Record<string, any> = {};
   
   for (const mapping of mappings) {
-    if (!mapping.gristColumn || !mapping.apiField) continue;
+    if (!mapping.gristColumn) continue;
     
     // Ignorer les mappings désactivés
     if (mapping.enabled === false) continue;
     
-    let value = getNestedValue(apiRecord, mapping.apiField);
+    let value;
     
-    // Applique la transformation personnalisée si définie
-    if (mapping.transform && typeof mapping.transform === 'function') {
-      value = mapping.transform(value);
+    // Si apiField est défini, extraire la valeur depuis l'enregistrement API
+    if (mapping.apiField) {
+      value = getNestedValue(apiRecord, mapping.apiField);
+      
+      // Applique la transformation personnalisée si définie
+      if (mapping.transform && typeof mapping.transform === 'function') {
+        value = mapping.transform(value);
+      } else {
+        // Sinon, applique la sérialisation automatique pour Grist
+        value = serializeValue(value);
+      }
     } else {
-      // Sinon, applique la sérialisation automatique pour Grist
-      value = serializeValue(value);
+      // Si apiField n'est pas défini, c'est une colonne personnalisée vide
+      // On met null pour créer la colonne sans données
+      value = null;
     }
     
     gristRecord[mapping.gristColumn] = value;
@@ -170,11 +179,17 @@ export function transformRecords(apiRecords: any[], mappings: FieldMapping[]): R
 /**
  * Valide un mapping pour s'assurer qu'il est correct
  * 
+ * Un mapping est valide si:
+ * - Il a au moins un gristColumn défini (pour les colonnes personnalisées)
+ * - OU il a les deux champs définis (pour les mappings complets)
+ * 
  * @param mapping - Le mapping à valider
  * @returns true si le mapping est valide, false sinon
  */
 export function isValidMapping(mapping: FieldMapping): boolean {
-  return !!(mapping.gristColumn && mapping.apiField);
+  // Un mapping est valide s'il a au moins un nom de colonne Grist
+  // L'apiField est optionnel pour permettre les colonnes personnalisées vides
+  return !!mapping.gristColumn;
 }
 
 /**

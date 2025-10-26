@@ -198,7 +198,7 @@ const enabledCount = computed(() => {
                   type="text"
                   :value="mapping.apiField"
                   @input="updateMapping(index, 'apiField', ($event.target as HTMLInputElement).value)"
-                  placeholder="Ex: user.name, email..."
+                  placeholder="Ex: user.name (optionnel pour colonnes vides)"
                   class="fr-input"
                   :list="`api-fields-${index}`"
                   :disabled="mapping.enabled === false"
@@ -241,6 +241,15 @@ const enabledCount = computed(() => {
         title="Astuce"
         content="Les champs API disponibles sont suggérés automatiquement. Vous pouvez renommer les colonnes Grist à votre convenance."
       />
+      <DsfrCallout
+        class="fr-mt-2w"
+        title="💡 Colonnes personnalisées"
+      >
+        <p class="fr-text--sm">
+          Laissez le champ API vide pour créer une colonne personnalisée. 
+          La colonne sera créée dans Grist avec des valeurs vides à remplir manuellement.
+        </p>
+      </DsfrCallout>
     </div>
   </div>
 </template>
