@@ -224,5 +224,5 @@ npm run test -- grist.test
 ## Références
 
 - [Documentation Grist](https://www.getgrist.com/docs/)
-- [Structure des URLs Grist](https://support.getgrist.com/)
+- [Grist Custom Widgets](https://support.getgrist.com/widget-custom/)
 - [Guide d'auto-détection](./AUTO_DETECTION.md)
