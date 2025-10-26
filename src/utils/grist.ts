@@ -341,6 +341,7 @@ export class GristClient {
   
   /**
    * Crée de nouvelles colonnes dans la table Grist
+   * Vérifie d'abord si les colonnes existent déjà et ne crée que celles qui manquent
    * 
    * @param columns - Liste des colonnes à créer
    * @returns Promesse résolue avec la réponse de Grist
@@ -351,21 +352,35 @@ export class GristClient {
       return { columns: [] };
     }
     
-    const baseUrl = this.config.gristApiUrl || 'https://docs.getgrist.com';
-    const url = `${baseUrl}/api/docs/${this.config.docId}/tables/${this.config.tableId}/columns`;
-    
-    const body: GristAddColumnsRequest = {
-      columns: columns.map(col => ({
-        id: col.id,
-        fields: {
-          colId: col.id,
-          label: col.label || col.id,
-          type: col.type || 'Text'
-        }
-      }))
-    };
-    
+    // Récupère les colonnes existantes pour éviter les doublons
     try {
+      const existingColumns = await this.getColumns();
+      const existingColumnIds = new Set(
+        existingColumns.map(col => col.fields.colId)
+      );
+      
+      // Filtre les colonnes qui n'existent pas déjà
+      const columnsToCreate = columns.filter(col => !existingColumnIds.has(col.id));
+      
+      if (columnsToCreate.length === 0) {
+        this.log('✓ Toutes les colonnes existent déjà', 'info');
+        return { columns: [] };
+      }
+      
+      const baseUrl = this.config.gristApiUrl || 'https://docs.getgrist.com';
+      const url = `${baseUrl}/api/docs/${this.config.docId}/tables/${this.config.tableId}/columns`;
+      
+      const body: GristAddColumnsRequest = {
+        columns: columnsToCreate.map(col => ({
+          id: col.id,
+          fields: {
+            colId: col.id,
+            label: col.label || col.id,
+            type: col.type || 'Text'
+          }
+        }))
+      };
+      
       const response = await fetch(url, {
         method: 'POST',
         headers: this.buildHeaders(),
