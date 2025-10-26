@@ -57,6 +57,28 @@ const maskedApiToken = computed(() => {
   return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4);
 });
 
+// Check if in development mode
+const isDevelopmentMode = computed(() => {
+  return import.meta.env.DEV;
+});
+
+// Compute the environment detection title
+const environmentDetectionTitle = computed(() => {
+  return `🔍 Environnement Grist: ${isEmbeddedInGrist.value ? 'Détecté' : 'Non détecté'}`;
+});
+
+// Compute the detection status message
+const detectionStatusMessage = computed(() => {
+  return isEmbeddedInGrist.value ? '✅ Widget intégré dans Grist' : '❌ Exécution autonome';
+});
+
+// Compute the detected fields message
+const detectedFieldsMessage = computed(() => {
+  return autoDetectedFields.value.length > 0 
+    ? autoDetectedFields.value.join(', ') 
+    : 'Aucun (en cours...)';
+});
+
 
 function extractDocAndTableIdFromSegments(segments: string[]): { docId?: string; tableId?: string } {
   const pIndex = segments.findIndex((s) => s === 'p');
@@ -202,15 +224,21 @@ async function testGristConnection() {
 
 // Auto-detect Grist configuration on component mount
 onMounted(async () => {
+  console.log('[Step3GristConfig] Component mounted, checking for Grist environment...');
+  
   // Check if running within Grist as a Custom Widget
   if (isRunningInGrist()) {
+    console.log('[Step3GristConfig] Running in Grist environment, starting auto-detection');
     isEmbeddedInGrist.value = true;
     emit('status', '🔍 Détection de l\'environnement Grist...', 'info');
     
     try {
+      console.log('[Step3GristConfig] Calling initializeGristWidget...');
       const gristInfo = await initializeGristWidget();
+      console.log('[Step3GristConfig] initializeGristWidget returned:', gristInfo);
       
       if (gristInfo.isInGrist) {
+        console.log('[Step3GristConfig] Grist info detected, applying to config');
         // Apply auto-detected values
         const updatedConfig = applyGristInfoToConfig(localConfig.value, gristInfo);
         
@@ -218,28 +246,39 @@ onMounted(async () => {
         autoDetectedFields.value = [];
         if (gristInfo.docId) {
           autoDetectedFields.value.push('Document ID');
+          console.log('[Step3GristConfig] Auto-detected Document ID:', gristInfo.docId);
         }
         if (gristInfo.gristApiUrl) {
           autoDetectedFields.value.push('URL API Grist');
+          console.log('[Step3GristConfig] Auto-detected API URL:', gristInfo.gristApiUrl);
         }
         if (gristInfo.accessToken) {
           autoDetectedFields.value.push('Token API');
+          console.log('[Step3GristConfig] Auto-detected access token (masked)');
         }
         
         // Update local config
         localConfig.value = updatedConfig;
+        console.log('[Step3GristConfig] Config updated with auto-detected values');
         
         // Show success message
         if (autoDetectedFields.value.length > 0) {
           const fieldsStr = autoDetectedFields.value.join(', ');
           emit('status', `✅ Configuration auto-détectée: ${fieldsStr}`, 'success');
+          console.log('[Step3GristConfig] Auto-detection successful:', fieldsStr);
+        } else {
+          console.log('[Step3GristConfig] No fields were auto-detected');
         }
+      } else {
+        console.log('[Step3GristConfig] isInGrist is false in returned info');
       }
     } catch (error) {
-      console.error('Erreur lors de la détection automatique:', error);
+      console.error('[Step3GristConfig] Erreur lors de la détection automatique:', error);
       emit('status', '⚠️ Impossible de détecter automatiquement la configuration Grist', 'info');
       isEmbeddedInGrist.value = false;
     }
+  } else {
+    console.log('[Step3GristConfig] Not running in Grist environment');
   }
 });
 
@@ -279,6 +318,25 @@ watch(localConfig, (newVal) => {
     </div>
 
     <div class="step-content">
+      <!-- Debug info banner (visible in development) -->
+      <DsfrAlert
+        v-if="isDevelopmentMode"
+        type="info"
+        :title="environmentDetectionTitle"
+        class="fr-mb-3w debug-banner"
+        small
+      >
+        <p class="fr-text--sm fr-mb-1w">
+          <strong>Statut de détection:</strong> {{ detectionStatusMessage }}
+        </p>
+        <p v-if="isEmbeddedInGrist" class="fr-text--sm fr-mb-0">
+          <strong>Champs détectés:</strong> {{ detectedFieldsMessage }}
+        </p>
+        <p class="fr-text--xs fr-mb-0 debug-info-text">
+          <em>Ce message n'apparaît qu'en mode développement. Consultez la console du navigateur pour plus de détails.</em>
+        </p>
+      </DsfrAlert>
+
       <!-- Auto-detection status indicator -->
       <DsfrCallout 
         v-if="isEmbeddedInGrist && autoDetectedFields.length > 0" 
@@ -294,6 +352,16 @@ watch(localConfig, (newVal) => {
           Vous pouvez modifier ces valeurs si nécessaire ou les conserver telles quelles.
         </p>
       </DsfrCallout>
+
+      <!-- Show info banner when in Grist but waiting for detection -->
+      <DsfrNotice 
+        v-if="isEmbeddedInGrist && autoDetectedFields.length === 0"
+        title="⏳ Détection en cours..."
+        class="fr-mb-3w"
+      >
+        Le plugin tente de détecter automatiquement votre configuration Grist.
+        Consultez la console du navigateur (F12) pour les détails de détection.
+      </DsfrNotice>
 
       <DsfrFieldset legend="Informations de connexion Grist">
         <DsfrInputGroup>
@@ -508,6 +576,16 @@ watch(localConfig, (newVal) => {
 
 .step-content {
   max-width: 800px;
+}
+
+.debug-banner {
+  border-left: 4px solid #0063cb !important;
+  background-color: #e8edff !important;
+}
+
+.debug-info-text {
+  opacity: 0.7;
+  margin-top: 0.5rem;
 }
 
 .separator-text {
