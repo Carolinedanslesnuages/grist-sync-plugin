@@ -74,7 +74,9 @@ function autoGenerateMappings() {
   
   // Si on a des colonnes existantes, essaie de faire correspondre automatiquement
   if (props.existingGristColumns && props.existingGristColumns.length > 0) {
-    const existingColumnsLower = props.existingGristColumns.map(col => col.toLowerCase());
+    // Filtrer les valeurs undefined/null et créer un tableau parallèle avec les valeurs en minuscules
+    const validColumns = props.existingGristColumns.filter(col => col != null && col !== '');
+    const existingColumnsLower = validColumns.map(col => col.toLowerCase());
     
     // Pour chaque mapping généré, vérifie s'il existe une colonne similaire
     generatedMappings.forEach(mapping => {
@@ -82,8 +84,8 @@ function autoGenerateMappings() {
       
       // Correspondance exacte (insensible à la casse)
       const exactMatchIndex = existingColumnsLower.indexOf(suggestedNameLower);
-      if (exactMatchIndex !== -1 && props.existingGristColumns) {
-        const matchedColumn = props.existingGristColumns[exactMatchIndex];
+      if (exactMatchIndex !== -1) {
+        const matchedColumn = validColumns[exactMatchIndex];
         if (matchedColumn) {
           mapping.gristColumn = matchedColumn;
           return;
@@ -92,8 +94,8 @@ function autoGenerateMappings() {
       
       // Correspondance partielle (cherche un nom similaire)
       // Seulement pour des noms suffisamment longs pour éviter les faux positifs
-      if (props.existingGristColumns && suggestedNameLower.length >= 3) {
-        const partialMatch = props.existingGristColumns.find(existingCol => {
+      if (suggestedNameLower.length >= 3) {
+        const partialMatch = validColumns.find(existingCol => {
           const existingLower = existingCol.toLowerCase();
           // Vérifie que les noms ont une longueur minimale pour la correspondance partielle
           if (existingLower.length < 3) return false;
