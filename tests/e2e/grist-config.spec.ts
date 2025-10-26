@@ -184,3 +184,94 @@ test.describe('Options de synchronisation', () => {
     }
   });
 });
+
+/**
+ * Tests pour le parsing d'URL Grist
+ */
+test.describe('Parsing d\'URL Grist', () => {
+  test('devrait extraire docId et tableId depuis une URL Grist complète', async ({ page }) => {
+    await page.route('**/api/data', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 1 }])
+      });
+    });
+
+    await page.goto('/');
+    
+    // Navigation rapide
+    const urlInput = page.getByLabel(/URL de l'API/i);
+    await urlInput.fill('https://api.example.com/api/data');
+    
+    const loadButton = page.getByRole('button', { name: /charger les données/i });
+    await loadButton.click();
+    await page.waitForTimeout(1000);
+    
+    const nextButton = page.getByRole('button', { name: /suivant/i });
+    await nextButton.click();
+    await page.waitForTimeout(500);
+    
+    // Chercher le champ d'URL du document Grist
+    const gristUrlInput = page.getByLabel(/URL du document Grist/i).first();
+    if (await gristUrlInput.isVisible()) {
+      // Coller une URL Grist complète avec tableId dans le chemin
+      await gristUrlInput.fill('https://docs.getgrist.com/doc/myDocId/p/MyTable');
+      await gristUrlInput.blur();
+      await page.waitForTimeout(500);
+      
+      // Vérifier que le Document ID a été extrait
+      const docIdInput = page.getByLabel(/Document ID/i).first();
+      const docIdValue = await docIdInput.inputValue();
+      expect(docIdValue).toBe('myDocId');
+      
+      // Vérifier que le Table ID a été extrait
+      const tableIdInput = page.getByLabel(/Table ID/i).first();
+      const tableIdValue = await tableIdInput.inputValue();
+      expect(tableIdValue).toBe('MyTable');
+    }
+  });
+
+  test('devrait extraire tableId depuis les query params d\'une URL Grist', async ({ page }) => {
+    await page.route('**/api/data', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 1 }])
+      });
+    });
+
+    await page.goto('/');
+    
+    // Navigation rapide
+    const urlInput = page.getByLabel(/URL de l'API/i);
+    await urlInput.fill('https://api.example.com/api/data');
+    
+    const loadButton = page.getByRole('button', { name: /charger les données/i });
+    await loadButton.click();
+    await page.waitForTimeout(1000);
+    
+    const nextButton = page.getByRole('button', { name: /suivant/i });
+    await nextButton.click();
+    await page.waitForTimeout(500);
+    
+    // Chercher le champ d'URL du document Grist
+    const gristUrlInput = page.getByLabel(/URL du document Grist/i).first();
+    if (await gristUrlInput.isVisible()) {
+      // Coller une URL Grist avec tableId dans les query params
+      await gristUrlInput.fill('https://docs.getgrist.com/doc/myDocId?tableId=Users');
+      await gristUrlInput.blur();
+      await page.waitForTimeout(500);
+      
+      // Vérifier que le Document ID a été extrait
+      const docIdInput = page.getByLabel(/Document ID/i).first();
+      const docIdValue = await docIdInput.inputValue();
+      expect(docIdValue).toBe('myDocId');
+      
+      // Vérifier que le Table ID a été extrait
+      const tableIdInput = page.getByLabel(/Table ID/i).first();
+      const tableIdValue = await tableIdInput.inputValue();
+      expect(tableIdValue).toBe('Users');
+    }
+  });
+});

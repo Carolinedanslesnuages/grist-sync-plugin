@@ -122,6 +122,44 @@ test.describe('Auto-détection Grist via query params', () => {
     await expect(tokenInput).toHaveValue('test-token-xyz');
   });
 
+  test('devrait auto-détecter tableId depuis les paramètres de requête', async ({ page }) => {
+    // Naviguer avec tableId dans les paramètres de requête
+    await page.goto('/?docId=test-doc&tableId=MyTable');
+    
+    // Attendre que le composant soit monté
+    await page.waitForTimeout(1000);
+    
+    // Mock de l'API pour passer l'étape 1
+    await page.route('**/api/data', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ id: 1 }])
+      });
+    });
+    
+    // Charger des données
+    const urlInput = page.getByLabel(/URL de l'API/i);
+    await urlInput.fill('https://api.example.com/api/data');
+    
+    const loadButton = page.getByRole('button', { name: /charger les données/i });
+    await loadButton.click();
+    await page.waitForTimeout(1000);
+    
+    // Passer à l'étape 2 (Configuration Grist)
+    const nextButton = page.getByRole('button', { name: /suivant/i });
+    await nextButton.click();
+    await page.waitForTimeout(500);
+    
+    // Vérifier que le Document ID est auto-détecté
+    const docIdInput = page.getByLabel(/Document ID/i).first();
+    await expect(docIdInput).toHaveValue('test-doc');
+    
+    // Vérifier que le Table ID est auto-détecté
+    const tableIdInput = page.getByLabel(/Table ID/i).first();
+    await expect(tableIdInput).toHaveValue('MyTable');
+  });
+
   test('devrait afficher un indicateur de détection automatique', async ({ page }) => {
     // Naviguer avec des paramètres de requête
     await page.goto('/?docId=indicator-test-doc');
