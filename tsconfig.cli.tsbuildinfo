@@ -1,1 +1,0 @@
-{"root":["./src/cli/setup.ts","./src/cli/sync.ts","./src/sync/syncService.ts","./src/sync/types.ts","./src/sync/providers/restProvider.ts"],"errors":true,"version":"5.9.3"}

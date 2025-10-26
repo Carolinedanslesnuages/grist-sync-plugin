@@ -29,6 +29,12 @@ grist-data
 # Config files with secrets
 config/grist-sync.json
 
+# TypeScript build info
+*.tsbuildinfo
+
+# Backup files
+*.bak
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
