@@ -115,20 +115,24 @@ export interface DryRunResult {
 export interface ParsedGristUrl {
   docId: string | null;
   gristApiUrl: string | null;
+  tableId?: string | null;
 }
 
 /**
  * Parse une URL de document Grist pour extraire le docId et l'URL de base
  * 
  * @param url - L'URL complète du document Grist
- * @returns Un objet contenant le docId et l'URL de base de l'API
+ * @returns Un objet contenant le docId, l'URL de base de l'API, et optionnellement le tableId
  * 
  * @example
  * parseGristUrl('https://docs.getgrist.com/doc/abc123xyz')
- * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com' }
+ * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com', tableId: null }
  * 
  * parseGristUrl('https://grist.example.com/o/myorg/doc/myDocId/p/5')
- * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com' }
+ * // { docId: 'myDocId', gristApiUrl: 'https://grist.example.com', tableId: '5' }
+ * 
+ * parseGristUrl('https://docs.getgrist.com/d/abc123xyz')
+ * // { docId: 'abc123xyz', gristApiUrl: 'https://docs.getgrist.com', tableId: null }
  */
 export function parseGristUrl(url: string): ParsedGristUrl {
   try {
@@ -136,20 +140,37 @@ export function parseGristUrl(url: string): ParsedGristUrl {
     const baseUrl = `${urlObj.protocol}//${urlObj.host}`;
     
     // Recherche du docId dans le chemin de l'URL
-    // Format typique: /doc/{docId} ou /o/{org}/doc/{docId}
-    const docMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
+    // Formats supportés:
+    // - /doc/{docId} ou /d/{docId}
+    // - /o/{org}/doc/{docId} ou /o/{org}/d/{docId}
+    // - /doc/{docId}/p/{tableId} ou /d/{docId}/p/{tableId}
+    
+    // Try path-style first: /d/{docId}
+    let docMatch = urlObj.pathname.match(/\/d\/([^\/\?#]+)/);
+    
+    // If not found, try standard format: /doc/{docId}
+    if (!docMatch) {
+      docMatch = urlObj.pathname.match(/\/doc\/([^\/\?#]+)/);
+    }
     
     if (docMatch && docMatch[1]) {
+      const docId = docMatch[1];
+      
+      // Try to extract table ID from /p/{tableId} format
+      const tableMatch = urlObj.pathname.match(/\/p\/([^\/\?#]+)/);
+      const tableId = tableMatch ? tableMatch[1] : null;
+      
       return {
-        docId: docMatch[1],
-        gristApiUrl: baseUrl
+        docId,
+        gristApiUrl: baseUrl,
+        tableId
       };
     }
     
-    return { docId: null, gristApiUrl: null };
+    return { docId: null, gristApiUrl: null, tableId: null };
   } catch (error) {
     // URL invalide
-    return { docId: null, gristApiUrl: null };
+    return { docId: null, gristApiUrl: null, tableId: null };
   }
 }
 

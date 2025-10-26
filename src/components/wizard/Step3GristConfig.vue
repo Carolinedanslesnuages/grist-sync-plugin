@@ -111,14 +111,18 @@ function handleNoProtocolInput(input: string) {
 
 function handleValidGristUrl(input: string) {
   const parsed = parseGristUrl(input);
+  
+  // Store the complete URL
+  localConfig.value.grist_url = input;
+  
   if (parsed.docId) {
     localConfig.value.docId = parsed.docId;
   }
   if (parsed.gristApiUrl) {
     localConfig.value.gristApiUrl = parsed.gristApiUrl;
   }
-  if ((parsed as any).tableId) {
-    localConfig.value.tableId = (parsed as any).tableId;
+  if (parsed.tableId) {
+    localConfig.value.tableId = parsed.tableId;
   }
   emit('status', '✅ URL Grist analysée avec succès', 'success');
   connectionTested.value = false;
@@ -145,6 +149,9 @@ function handleUrlPaste() {
     const url = new URL(input);
     const segments = url.pathname.split('/').filter(Boolean);
     const { docId, tableId } = extractDocAndTableIdFromSegments(segments);
+
+    // Store the complete URL
+    localConfig.value.grist_url = input;
 
     if (docId) {
       localConfig.value.docId = docId;

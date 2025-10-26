@@ -18,6 +18,9 @@ export interface GristConfig {
   /** URL de base de l'API Grist (par défaut: https://docs.getgrist.com) */
   gristApiUrl?: string;
   
+  /** URL complète du document Grist fournie par l'utilisateur */
+  grist_url?: string;
+  
   /** Créer automatiquement les colonnes manquantes (par défaut: true) */
   autoCreateColumns?: boolean;
   

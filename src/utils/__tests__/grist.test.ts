@@ -17,6 +17,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe('abc123xyz');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
   });
 
   it('devrait parser une URL Grist avec organisation', () => {
@@ -25,6 +26,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe('myDocId');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
   });
 
   it('devrait parser une URL Grist avec page', () => {
@@ -33,6 +35,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe('abc123');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('5');
   });
 
   it('devrait parser une URL Grist self-hosted', () => {
@@ -41,6 +44,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe('myDocId');
     expect(result.gristApiUrl).toBe('https://grist.example.com');
+    expect(result.tableId).toBe(null);
   });
 
   it('devrait parser une URL avec port', () => {
@@ -49,6 +53,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe('testDoc');
     expect(result.gristApiUrl).toBe('http://localhost:8484');
+    expect(result.tableId).toBe(null);
   });
 
   it('devrait retourner null pour une URL sans docId', () => {
@@ -57,6 +62,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe(null);
     expect(result.gristApiUrl).toBe(null);
+    expect(result.tableId).toBe(null);
   });
 
   it('devrait retourner null pour une URL invalide', () => {
@@ -65,6 +71,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe(null);
     expect(result.gristApiUrl).toBe(null);
+    expect(result.tableId).toBe(null);
   });
 
   it('devrait gérer les URLs avec query parameters', () => {
@@ -73,6 +80,7 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe('abc123');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
   });
 
   it('devrait gérer les URLs avec hash', () => {
@@ -81,6 +89,70 @@ describe('parseGristUrl', () => {
 
     expect(result.docId).toBe('abc123');
     expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
+  });
+
+  it('devrait parser une URL path-style avec /d/', () => {
+    const url = 'https://docs.getgrist.com/d/abc123xyz';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123xyz');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
+  });
+
+  it('devrait parser une URL path-style avec /d/ et table ID', () => {
+    const url = 'https://docs.getgrist.com/d/abc123/p/Table1';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('Table1');
+  });
+
+  it('devrait parser une URL avec organisation et table ID', () => {
+    const url = 'https://grist.example.com/o/myorg/doc/myDocId/p/Users';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('myDocId');
+    expect(result.gristApiUrl).toBe('https://grist.example.com');
+    expect(result.tableId).toBe('Users');
+  });
+
+  it('devrait parser une URL path-style avec organisation', () => {
+    const url = 'https://docs.getgrist.com/o/myorg/d/docId123';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('docId123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe(null);
+  });
+
+  it('devrait parser une URL path-style avec organisation et table ID', () => {
+    const url = 'https://docs.getgrist.com/o/myorg/d/docId123/p/Contacts';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('docId123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('Contacts');
+  });
+
+  it('devrait gérer les table IDs numériques', () => {
+    const url = 'https://docs.getgrist.com/doc/abc123/p/42';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('abc123');
+    expect(result.gristApiUrl).toBe('https://docs.getgrist.com');
+    expect(result.tableId).toBe('42');
+  });
+
+  it('devrait gérer les URLs localhost avec path-style', () => {
+    const url = 'http://localhost:8484/d/testDoc/p/TestTable';
+    const result = parseGristUrl(url);
+
+    expect(result.docId).toBe('testDoc');
+    expect(result.gristApiUrl).toBe('http://localhost:8484');
+    expect(result.tableId).toBe('TestTable');
   });
 });
 
