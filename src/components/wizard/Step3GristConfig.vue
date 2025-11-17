@@ -54,12 +54,6 @@ const maskedApiToken = computed(() => {
   return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4);
 });
 
-// Check if in development mode
-const isDevelopmentMode = computed(() => {
-  return import.meta.env.DEV;
-});
-
-
 function extractDocAndTableIdFromSegments(segments: string[]): { docId?: string; tableId?: string } {
   const pIndex = segments.findIndex((s) => s === 'p');
   let docId: string | undefined;
