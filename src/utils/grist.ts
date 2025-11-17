@@ -677,7 +677,7 @@ export class GristClient {
     const existingRecords = await this.getRecords();
     
     // Crée une map des enregistrements existants par clé unique
-    const existingMap = new Map<any, GristRecord>();
+    const existingMap = new Map<string, GristRecord>();
     for (const record of existingRecords) {
       const keyValue = record.fields[uniqueKey];
       if (keyValue !== undefined && keyValue !== null) {
