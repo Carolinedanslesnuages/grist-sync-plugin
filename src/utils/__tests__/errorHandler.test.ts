@@ -63,6 +63,17 @@ describe('analyzeError', () => {
 
       expect(result.type).toBe('network');
     });
+
+    it('ne devrait PAS détecter une erreur CORS comme une erreur réseau si le message contient "network"', () => {
+      // Test pour exposer le bug d'opérateur de précédence
+      // Une erreur CORS qui contient "network" ne devrait pas être classée comme erreur réseau
+      const error = new TypeError('Failed to fetch');
+      error.message = 'CORS policy: No Access-Control-Allow-Origin header is present on the requested resource. This may be due to a network configuration issue.';
+      const result = analyzeError(error, 'general');
+
+      // Devrait être détectée comme CORS, pas comme network
+      expect(result.type).toBe('cors');
+    });
   });
 
   describe('Erreurs HTTP', () => {

@@ -403,6 +403,51 @@ describe('extractAllKeys', () => {
     // Devrait s'arrêter à la profondeur 3
     expect(result).not.toContain('a.b.c.d');
   });
+
+  it('devrait gérer les objets avec hasOwnProperty personnalisé', () => {
+    // Test pour bug #3 - hasOwnProperty unsafe
+    const obj = {
+      hasOwnProperty: 'custom',
+      name: 'test',
+      id: 123
+    };
+
+    // Ne devrait pas lever d'exception
+    const result = extractAllKeys(obj);
+    expect(result).toContain('name');
+    expect(result).toContain('id');
+    expect(result).toContain('hasOwnProperty');
+  });
+
+  it('devrait gérer les objets créés avec Object.create(null)', () => {
+    // Test pour bug #3 - hasOwnProperty unsafe
+    const obj = Object.create(null);
+    obj.name = 'test';
+    obj.id = 123;
+
+    // Ne devrait pas lever d'exception
+    const result = extractAllKeys(obj);
+    expect(result).toContain('name');
+    expect(result).toContain('id');
+  });
+
+  it('ne devrait PAS récurser dans les objets Date', () => {
+    // Test pour bug #4 - Date handling
+    const obj = {
+      createdAt: new Date('2024-01-15'),
+      user: {
+        name: 'Alice'
+      }
+    };
+
+    const result = extractAllKeys(obj);
+    expect(result).toContain('createdAt');
+    expect(result).toContain('user');
+    expect(result).toContain('user.name');
+    
+    // Ne devrait PAS contenir de clés de Date comme 'createdAt.getTime' etc.
+    expect(result.filter(key => key.startsWith('createdAt.')).length).toBe(0);
+  });
 });
 
 describe('generateMappingsFromApiData', () => {
