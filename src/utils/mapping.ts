@@ -275,3 +275,211 @@ export function generateMappingsFromApiData(sampleData: any, defaultEnabled = tr
     };
   });
 }
+
+/**
+ * Désérialise une valeur provenant de Grist pour la transformer en type JSON
+ * Deserializes a value from Grist to transform it into a JSON type
+ * 
+ * - Strings contenant ";" : convertit en tableau / Strings containing ";": converts to array
+ * - Strings JSON : parse en objet/tableau / JSON strings: parses to object/array
+ * - Strings de dates ISO : convertit en Date / ISO date strings: converts to Date
+ * - Autres : retourne tel quel / Others: returns as is
+ * 
+ * @param value - La valeur à désérialiser / The value to deserialize
+ * @returns La valeur désérialisée / The deserialized value
+ * 
+ * @example
+ * deserializeValue("a;b;c") // ["a", "b", "c"]
+ * deserializeValue('{"x":1,"y":2}') // { x: 1, y: 2 }
+ * deserializeValue("2024-01-15T00:00:00.000Z") // Date object
+ */
+export function deserializeValue(value: any): any {
+  // Gère null et undefined
+  if (value === null || value === undefined) {
+    return value;
+  }
+  
+  // Les non-strings sont retournés tels quels
+  if (typeof value !== 'string') {
+    return value;
+  }
+  
+  // Chaîne vide reste chaîne vide
+  if (value === '') {
+    return value;
+  }
+  
+  // Essaie de parser comme JSON
+  const parsedJson = tryParseJson(value);
+  if (parsedJson !== null) {
+    return parsedJson;
+  }
+  
+  // Détecte les listes séparées par ";"
+  if (value.includes(';')) {
+    const parts = value.split(';');
+    // Essaie de désérialiser récursivement chaque élément
+    return parts.map(part => {
+      const trimmed = part.trim();
+      // Si l'élément ressemble à du JSON, essaie de le parser
+      const parsed = tryParseJson(trimmed);
+      return parsed !== null ? parsed : trimmed;
+    });
+  }
+  
+  // Détecte les dates ISO
+  const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
+  if (isoDateRegex.test(value)) {
+    const date = new Date(value);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  
+  // Retourne la valeur telle quelle
+  return value;
+}
+
+/**
+ * Essaie de parser une chaîne JSON
+ * Tries to parse a JSON string
+ * 
+ * @param value - La valeur à parser / The value to parse
+ * @returns L'objet parsé ou null si le parsing échoue / The parsed object or null if parsing fails
+ */
+function tryParseJson(value: string): any | null {
+  if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Définit une valeur dans un objet en utilisant un chemin (supporte la notation pointée)
+ * Crée les objets intermédiaires si nécessaire
+ * Sets a value in an object using a path (supports dot notation)
+ * Creates intermediate objects if necessary
+ * 
+ * @param obj - L'objet cible / The target object
+ * @param path - Le chemin vers la propriété (ex: "user.name") / The path to the property (e.g., "user.name")
+ * @param value - La valeur à définir / The value to set
+ * 
+ * @example
+ * const obj = {};
+ * setNestedValue(obj, "user.name", "Alice");
+ * // obj devient: { user: { name: "Alice" } }
+ */
+export function setNestedValue(obj: any, path: string, value: any): void {
+  if (!path || !obj) return;
+  
+  const keys = path.split('.');
+  let current = obj;
+  
+  // Parcourt tous les keys sauf le dernier
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    if (!key) continue; // Skip empty keys
+    
+    // Protection contre la pollution de prototype
+    // Guard against prototype pollution
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      console.warn(`⚠️ Attempted to set dangerous property: ${key}`);
+      return;
+    }
+    
+    // Crée l'objet intermédiaire si nécessaire
+    if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+      current[key] = {};
+    }
+    
+    current = current[key];
+  }
+  
+  // Définit la valeur finale
+  const lastKey = keys[keys.length - 1];
+  if (lastKey) {
+    // Protection contre la pollution de prototype
+    // Guard against prototype pollution
+    if (lastKey === '__proto__' || lastKey === 'constructor' || lastKey === 'prototype') {
+      console.warn(`⚠️ Attempted to set dangerous property: ${lastKey}`);
+      return;
+    }
+    
+    current[lastKey] = value;
+  }
+}
+
+/**
+ * Transforme un enregistrement Grist en enregistrement API selon le mapping fourni
+ * 
+ * @param gristRecord - Un enregistrement provenant de Grist
+ * @param mappings - Liste des mappings à appliquer
+ * @returns Un objet JSON formaté pour l'API
+ * 
+ * @example
+ * const gristData = { Name: "Alice", user_email: "alice@example.com", tags: "tag1;tag2" };
+ * const mappings = [
+ *   { gristColumn: "Name", apiField: "user.name" },
+ *   { gristColumn: "user_email", apiField: "user.email" },
+ *   { gristColumn: "tags", apiField: "tags" }
+ * ];
+ * transformGristToApi(gristData, mappings)
+ * // Résultat: { user: { name: "Alice", email: "alice@example.com" }, tags: ["tag1", "tag2"] }
+ */
+export function transformGristToApi(gristRecord: Record<string, any>, mappings: FieldMapping[]): Record<string, any> {
+  const apiRecord: Record<string, any> = {};
+  
+  for (const mapping of mappings) {
+    if (!mapping.gristColumn || !mapping.apiField) continue;
+    
+    // Ignorer les mappings désactivés
+    if (mapping.enabled === false) continue;
+    
+    // Récupère la valeur depuis Grist
+    let value = gristRecord[mapping.gristColumn];
+    
+    // Applique la transformation personnalisée si définie
+    if (mapping.transform && typeof mapping.transform === 'function') {
+      value = mapping.transform(value);
+    } else {
+      // Sinon, applique la désérialisation automatique
+      value = deserializeValue(value);
+    }
+    
+    // Définit la valeur dans l'objet API (supporte la notation pointée)
+    setNestedValue(apiRecord, mapping.apiField, value);
+  }
+  
+  return apiRecord;
+}
+
+/**
+ * Transforme un tableau d'enregistrements Grist en enregistrements API
+ * 
+ * @param gristRecords - Tableau d'enregistrements provenant de Grist
+ * @param mappings - Liste des mappings à appliquer
+ * @returns Un tableau d'objets prêts à être envoyés à l'API
+ * 
+ * @example
+ * const gristData = [
+ *   { Name: "Alice", Score: 85 },
+ *   { Name: "Bob", Score: 92 }
+ * ];
+ * const mappings = [
+ *   { gristColumn: "Name", apiField: "name" },
+ *   { gristColumn: "Score", apiField: "score" }
+ * ];
+ * transformGristRecordsToApi(gristData, mappings)
+ * // Résultat: [{ name: "Alice", score: 85 }, { name: "Bob", score: 92 }]
+ */
+export function transformGristRecordsToApi(gristRecords: Record<string, any>[], mappings: FieldMapping[]): Record<string, any>[] {
+  if (!Array.isArray(gristRecords)) {
+    return [];
+  }
+  
+  return gristRecords.map(record => transformGristToApi(record, mappings));
+}

@@ -16,7 +16,6 @@ interface Props {
   mappings: FieldMapping[];
   gristConfig?: GristConfig;
 }
-
 interface Emits {
   (e: 'update:mappings', value: FieldMapping[]): void;
   (e: 'status', message: string, type: 'success' | 'error' | 'info'): void;
@@ -26,6 +25,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const recordCount = computed(() => props.apiData.length);
+
 const validMappingsCount = computed(() => getValidMappings(props.mappings).length);
 const existingGristColumns = ref<string[]>([]);
 const isLoadingColumns = ref(false);
@@ -92,7 +92,7 @@ watch(
           title="Données récupérées avec succès"
           :closeable="false"
         >
-          {{ recordCount }} enregistrement(s) disponible(s) pour la synchronisation
+          {{ recordCount }} enregistrement(s) disponible(s) pour la synchronisation ldskfdslkfs
         </DsfrNotice>
       </div>
 

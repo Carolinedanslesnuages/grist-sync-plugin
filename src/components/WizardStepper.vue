@@ -21,6 +21,17 @@ const currentStep = ref(1)
 const backendUrl = ref<string>('')
 const apiData = ref<ApiRecord[]>([])
 const sampleRecord = ref<ApiRecord | undefined>(undefined)
+
+// Fusionne toutes les clés des objets de apiData
+const mergedSampleRecord = computed(() => {
+  if (!apiData.value.length) return undefined
+  return apiData.value.reduce((acc, rec) => {
+    Object.entries(rec).forEach(([key, val]) => {
+      acc[key] = val
+    })
+    return acc
+  }, {} as Record<string, unknown>)
+})
 const mappings = ref<FieldMapping[]>([{ gristColumn: '', apiField: '' }])
 const gristConfig = ref<GristConfig>({ ...defaultConfig })
 const isStep4Complete = ref(false) 
@@ -69,6 +80,7 @@ function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info'
 function handleStep1Complete(data: ApiRecord[], url: string) {
   backendUrl.value = url
   apiData.value = data
+  console.log('Données API récupérées:', data)
   sampleRecord.value = data.length > 0 ? data[0] : undefined
   showStatus(MESSAGES.fetchSuccess, 'success')
   goToStep('next')
@@ -157,7 +169,7 @@ onBeforeUnmount(() => {
         <Step3DataMapping
           v-else-if="currentStep === 3"
           :apiData="apiData"
-          :sampleRecord="sampleRecord"
+          :sampleRecord="mergedSampleRecord"
           v-model:mappings="mappings"
           :gristConfig="gristConfig"
           @status="showStatus"

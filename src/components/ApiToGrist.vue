@@ -70,6 +70,7 @@ async function fetchApiData() {
     const data = await response.json();
     
     if (Array.isArray(data)) {
+      console.log('Données API récupérées:', data);
       apiData.value = data;
     } else if (data.data && Array.isArray(data.data)) {
       apiData.value = data.data;
@@ -82,6 +83,7 @@ async function fetchApiData() {
     }
     
     if (apiData.value.length > 0) {
+      console.log('Données API récupérées:', apiData.value);
       sampleRecord.value = apiData.value[0];
       showStatus(`✅ ${apiData.value.length} enregistrement(s) récupéré(s) avec succès`, 'success');
     } else {
@@ -290,7 +292,7 @@ const validMappingsCount = computed(() => getValidMappings(mappings.value).lengt
         title="Données récupérées avec succès"
         :closeable="false"
       >
-        {{ recordCount }} enregistrement(s) disponible(s) pour la synchronisation
+        {{ recordCount }}  enregistrement(s) disponible(s) pour la synchronisation lklkdmfsdk
       </DsfrNotice>
       
       <div v-if="sampleRecord" class="fr-mt-2w">

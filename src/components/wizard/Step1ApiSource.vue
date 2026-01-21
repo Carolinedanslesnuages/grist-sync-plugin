@@ -58,6 +58,7 @@ async function fetchApiData() {
     }
     
     const data = await response.json();
+    console.log('Réponse brute de l\'API:', data);
     
     let apiData: any[] = [];
     if (Array.isArray(data)) {
@@ -74,6 +75,7 @@ async function fetchApiData() {
     
     if (apiData.length > 0) {
       previewData.value = apiData;
+      console.log('Données API extraitesfsdlfdfksdl:', apiData);
       sampleRecord.value = apiData[0];
 
       emit('complete', apiData, localUrl.value);
