@@ -200,14 +200,19 @@ async function syncToGrist() {
         addLog(`✓ ${detail}`, 'success');
       });
       
-      const totalChanges = result.added + result.updated;
+      const totalChanges = result.added + result.updated + result.deleted;
       addLog(`✅ Synchronisation terminée: ${totalChanges} enregistrement(s) affecté(s)`, 'success');
       addLog(`📋 Document Grist: ${props.gristConfig.docId}`, 'info');
       addLog(`📊 Table: ${props.gristConfig.tableId}`, 'info');
       
       syncCompleted.value = true;
       syncSuccess.value = true;
-      emit('status', `✅ Synchronisation réussie: ${result.added} ajouté(s), ${result.updated} mis à jour`, 'success');
+      
+      let statusMsg = `✅ Synchronisation réussie: ${result.added} ajouté(s), ${result.updated} mis à jour`;
+      if (result.deleted > 0) {
+        statusMsg += `, ${result.deleted} supprimé(s)`;
+      }
+      emit('status', statusMsg, 'success');
     }
   } catch (error) {
     // Analyse détaillée de l'erreur
@@ -224,6 +229,109 @@ async function syncToGrist() {
     syncSuccess.value = false;
   } finally {
     emit('update:isLoading', false);
+  }
+}
+
+/**
+ * Synchronisation complète (Flush & Fill) : supprime toutes les données existantes et les remplace
+ */
+async function flushAndFillSync() {
+  syncLogs.value = [];
+  syncCompleted.value = false;
+  syncSuccess.value = false;
+  lastSyncError.value = null;
+  dryRunResult.value = null;
+  showDryRunDetails.value = false;
+  
+  addLog('🔥 Démarrage de la synchronisation complète (Flush & Fill)...', 'info');
+  addLog('⚠️ Cette opération va SUPPRIMER toutes les données existantes', 'info');
+  
+  if (props.apiData.length === 0) {
+    addLog('❌ Aucune donnée à synchroniser', 'error');
+    emit('status', '⚠️ Aucune donnée à synchroniser', 'error');
+    return;
+  }
+  
+  const validMappings = getValidMappings(props.mappings);
+  
+  if (validMappings.length === 0) {
+    addLog('❌ Aucun mapping valide configuré', 'error');
+    emit('status', '⚠️ Veuillez définir au moins un mapping valide', 'error');
+    return;
+  }
+  
+  addLog(`📊 ${props.apiData.length} enregistrement(s) à synchroniser`, 'info');
+  addLog(`🔗 ${validMappings.length} mapping(s) configuré(s)`, 'info');
+  
+  emit('update:isLoading', true);
+  
+  try {
+    // Transforme les données selon le mapping
+    addLog('🔄 Transformation des données...', 'info');
+    const transformedData = transformRecords(props.apiData, validMappings);
+    
+    if (transformedData.length === 0) {
+      addLog('❌ Aucune donnée après transformation', 'error');
+      emit('status', '⚠️ Aucune donnée après transformation', 'error');
+      return;
+    }
+    
+    addLog(`✓ ${transformedData.length} enregistrement(s) transformé(s)`, 'success');
+    
+    // Synchronise avec Grist en mode flush_fill
+    addLog('🔥 Synchronisation complète (Flush & Fill) vers Grist...', 'info');
+    
+    // Créer une copie de la config avec syncMode = 'flush_fill'
+    const flushFillConfig = { ...props.gristConfig, syncMode: 'flush_fill' as const };
+    const client = new GristClient(flushFillConfig, addLog);
+    const result = await client.syncRecords(transformedData);
+    
+    if ('added' in result) {
+      // Affiche les résultats détaillés
+      result.details.forEach(detail => {
+        addLog(`✓ ${detail}`, 'success');
+      });
+      
+      addLog(`✅ Synchronisation complète terminée`, 'success');
+      addLog(`📋 Document Grist: ${props.gristConfig.docId}`, 'info');
+      addLog(`📊 Table: ${props.gristConfig.tableId}`, 'info');
+      
+      syncCompleted.value = true;
+      syncSuccess.value = true;
+      emit('status', `✅ Synchronisation complète réussie: ${result.deleted} supprimé(s), ${result.added} ajouté(s)`, 'success');
+    }
+  } catch (error) {
+    // Analyse détaillée de l'erreur
+    const errorInfo = analyzeError(error, 'grist_sync');
+    lastSyncError.value = errorInfo;
+    
+    addLog(`❌ ${errorInfo.title}`, 'error');
+    addLog(`📋 ${errorInfo.explanation}`, 'error');
+    addLog(`💡 Solution: ${errorInfo.solutions[0]}`, 'error');
+    
+    const message = error instanceof Error ? error.message : 'Erreur inconnue';
+    emit('status', `❌ Erreur lors de la synchronisation complète: ${message}`, 'error');
+    syncCompleted.value = true;
+    syncSuccess.value = false;
+  } finally {
+    emit('update:isLoading', false);
+  }
+}
+
+/**
+ * Confirme la synchronisation complète (Flush & Fill) avant de l'exécuter
+ */
+function confirmFlushAndFill() {
+  const confirmed = confirm(
+    '⚠️ ATTENTION : Synchronisation complète (Flush & Fill)\n\n' +
+    'Cette opération va SUPPRIMER DÉFINITIVEMENT toutes les données existantes dans votre table Grist et les remplacer par les nouvelles données.\n\n' +
+    `${props.apiData.length} nouveaux enregistrement(s) seront ajoutés après la suppression.\n\n` +
+    'Cette action est IRRÉVERSIBLE.\n\n' +
+    'Voulez-vous vraiment continuer ?'
+  );
+  
+  if (confirmed) {
+    flushAndFillSync();
   }
 }
 </script>
@@ -283,6 +391,24 @@ async function syncToGrist() {
             :disabled="!canSync"
             @click="syncToGrist"
           />
+          <DsfrButton
+            label="Synchronisation complète (Flush & Fill)"
+            icon="ri-delete-bin-line"
+            :loading="isLoading"
+            :disabled="!canSync"
+            @click="confirmFlushAndFill"
+          />
+        </div>
+        <div class="fr-mt-2w">
+          <DsfrCallout 
+            type="info"
+            title="💡 Modes de synchronisation"
+          >
+            <ul class="fr-text--sm">
+              <li><strong>Synchronisation standard</strong> : Ajoute ou met à jour les données selon la configuration</li>
+              <li><strong>Synchronisation complète (Flush & Fill)</strong> : ⚠️ Supprime TOUTES les données existantes et les remplace par les nouvelles données. Utilisez cette option pour une synchronisation complète du référentiel.</li>
+            </ul>
+          </DsfrCallout>
         </div>
         <div v-if="!canSync" class="fr-mt-2w">
           <DsfrCallout 
@@ -319,6 +445,9 @@ async function syncToGrist() {
                 </DsfrBadge>
                 <DsfrBadge type="warning" class="fr-mr-2w">
                   🔄 {{ dryRunResult.summary.recordsToUpdate }} à mettre à jour
+                </DsfrBadge>
+                <DsfrBadge v-if="dryRunResult.summary.recordsToDelete && dryRunResult.summary.recordsToDelete > 0" type="error" class="fr-mr-2w">
+                  🗑️ {{ dryRunResult.summary.recordsToDelete }} à supprimer
                 </DsfrBadge>
                 <DsfrBadge type="success">
                   ✓ {{ dryRunResult.summary.recordsUnchanged }} inchangé(s)
@@ -363,6 +492,24 @@ async function syncToGrist() {
                     </div>
                     <p v-if="dryRunResult.toUpdate.length > 5" class="fr-text--xs fr-mt-1w">
                       ... et {{ dryRunResult.toUpdate.length - 5 }} autre(s) enregistrement(s)
+                    </p>
+                  </div>
+                </DsfrAccordion>
+              </div>
+
+              <!-- Détails des enregistrements à supprimer -->
+              <div v-if="dryRunResult.toDelete && dryRunResult.toDelete.length > 0" class="fr-mt-2w">
+                <DsfrAccordion
+                  title="🗑️ Enregistrements à supprimer"
+                  :id="`${componentId}-delete`"
+                >
+                  <div class="records-list">
+                    <div v-for="(record, idx) in dryRunResult.toDelete.slice(0, 5)" :key="idx" class="record-item">
+                      <p class="fr-text--sm"><strong>ID Grist: {{ record.id }}</strong></p>
+                      <pre class="fr-code fr-text--xs">{{ JSON.stringify(record.fields, null, 2) }}</pre>
+                    </div>
+                    <p v-if="dryRunResult.toDelete.length > 5" class="fr-text--xs fr-mt-1w">
+                      ... et {{ dryRunResult.toDelete.length - 5 }} autre(s) enregistrement(s)
                     </p>
                   </div>
                 </DsfrAccordion>

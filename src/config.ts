@@ -24,8 +24,8 @@ export interface GristConfig {
   /** Colonne unique pour identifier les enregistrements existants (ex: 'api_id', 'Email') */
   uniqueKey?: string;
   
-  /** Mode de synchronisation: 'add' (ajouter uniquement), 'update' (mettre à jour), 'upsert' (ajouter ou mettre à jour) */
-  syncMode?: 'add' | 'update' | 'upsert';
+  /** Mode de synchronisation: 'add' (ajouter uniquement), 'update' (mettre à jour), 'upsert' (ajouter ou mettre à jour), 'flush_fill' (supprimer tout et ré-ajouter) */
+  syncMode?: 'add' | 'update' | 'upsert' | 'flush_fill';
 }
 
 /**
