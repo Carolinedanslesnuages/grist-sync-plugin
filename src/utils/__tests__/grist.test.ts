@@ -1004,4 +1004,225 @@ describe('GristClient', () => {
       await expect(client.syncRecords(records)).rejects.toThrow('clé unique');
     });
   });
+
+  describe('deleteRecords', () => {
+    it('devrait supprimer des enregistrements par leurs IDs', async () => {
+      const mockResponse = {
+        ok: true,
+        json: async () => ({})
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const client = new GristClient(mockConfig);
+      const recordIds = [1, 2, 3];
+
+      const result = await client.deleteRecords(recordIds);
+
+      expect(result).toBe(3);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/records'),
+        expect.objectContaining({
+          method: 'DELETE',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer test-token'
+          }),
+          body: JSON.stringify([1, 2, 3])
+        })
+      );
+    });
+
+    it('devrait retourner 0 si aucun enregistrement à supprimer', async () => {
+      const client = new GristClient(mockConfig);
+
+      const result = await client.deleteRecords([]);
+
+      expect(result).toBe(0);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('devrait gérer les erreurs HTTP', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 403,
+        text: async () => 'Forbidden'
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const client = new GristClient(mockConfig);
+
+      await expect(client.deleteRecords([1, 2])).rejects.toThrow();
+    });
+  });
+
+  describe('deleteAllRecords', () => {
+    it('devrait supprimer tous les enregistrements existants', async () => {
+      // Mock getRecords
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { Name: 'Alice' } },
+            { id: 2, fields: { Name: 'Bob' } },
+            { id: 3, fields: { Name: 'Charlie' } }
+          ]
+        })
+      };
+
+      // Mock deleteRecords
+      const mockDeleteResponse = {
+        ok: true,
+        json: async () => ({})
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetResponse)  // getRecords
+        .mockResolvedValueOnce(mockDeleteResponse); // deleteRecords
+
+      const client = new GristClient(mockConfig);
+      const result = await client.deleteAllRecords();
+
+      expect(result).toBe(3);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('devrait retourner 0 si aucun enregistrement existant', async () => {
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({ records: [] })
+      };
+
+      mockFetch.mockResolvedValueOnce(mockGetResponse);
+
+      const client = new GristClient(mockConfig);
+      const result = await client.deleteAllRecords();
+
+      expect(result).toBe(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1); // Seulement getRecords
+    });
+  });
+
+  describe('syncRecords - mode flush_fill', () => {
+    it('devrait supprimer tous les enregistrements existants puis ajouter les nouveaux', async () => {
+      // Mock getRecords (appelé deux fois : une fois pour flush, une fois dans flushAndFillRecords)
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { Name: 'Alice' } },
+            { id: 2, fields: { Name: 'Bob' } }
+          ]
+        })
+      };
+
+      // Mock deleteRecords
+      const mockDeleteResponse = {
+        ok: true,
+        json: async () => ({})
+      };
+
+      // Mock addRecords
+      const mockAddResponse = {
+        ok: true,
+        json: async () => ({ records: [{ id: 3 }, { id: 4 }] })
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetResponse)  // getRecords in flushAndFillRecords
+        .mockResolvedValueOnce(mockGetResponse)  // getRecords in deleteAllRecords
+        .mockResolvedValueOnce(mockDeleteResponse) // deleteRecords
+        .mockResolvedValueOnce(mockAddResponse); // addRecords
+
+      const configFlushFill = {
+        ...mockConfig,
+        syncMode: 'flush_fill' as const,
+        autoCreateColumns: false
+      };
+      const client = new GristClient(configFlushFill);
+      const records = [
+        { Name: 'Charlie', Email: 'charlie@example.com' },
+        { Name: 'David', Email: 'david@example.com' }
+      ];
+
+      const result = await client.syncRecords(records);
+
+      expect('added' in result).toBe(true);
+      if ('added' in result) {
+        expect(result.deleted).toBe(2); // 2 enregistrements supprimés
+        expect(result.added).toBe(2);   // 2 nouveaux enregistrements ajoutés
+        expect(result.updated).toBe(0);
+        expect(result.unchanged).toBe(0);
+      }
+    });
+
+    it('devrait supporter le dry-run en mode flush_fill', async () => {
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({
+          records: [
+            { id: 1, fields: { Name: 'Alice' } },
+            { id: 2, fields: { Name: 'Bob' } }
+          ]
+        })
+      };
+
+      mockFetch.mockResolvedValueOnce(mockGetResponse);
+
+      const configFlushFill = {
+        ...mockConfig,
+        syncMode: 'flush_fill' as const
+      };
+      const client = new GristClient(configFlushFill);
+      const records = [
+        { Name: 'Charlie', Email: 'charlie@example.com' }
+      ];
+
+      const result = await client.syncRecords(records, { dryRun: true });
+
+      expect('toAdd' in result).toBe(true);
+      if ('toAdd' in result) {
+        expect(result.toAdd.length).toBe(1);
+        expect(result.toDelete?.length).toBe(2);
+        expect(result.summary.recordsToAdd).toBe(1);
+        expect(result.summary.recordsToDelete).toBe(2);
+      }
+
+      // Doit avoir appelé seulement getRecords pour le dry-run
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('devrait gérer le cas où il n\'y a pas d\'enregistrements existants', async () => {
+      // Mock getRecords retourne vide
+      const mockGetResponse = {
+        ok: true,
+        json: async () => ({ records: [] })
+      };
+
+      // Mock addRecords
+      const mockAddResponse = {
+        ok: true,
+        json: async () => ({ records: [{ id: 1 }] })
+      };
+
+      mockFetch
+        .mockResolvedValueOnce(mockGetResponse)  // getRecords
+        .mockResolvedValueOnce(mockAddResponse); // addRecords
+
+      const configFlushFill = {
+        ...mockConfig,
+        syncMode: 'flush_fill' as const,
+        autoCreateColumns: false
+      };
+      const client = new GristClient(configFlushFill);
+      const records = [{ Name: 'Alice', Email: 'alice@example.com' }];
+
+      const result = await client.syncRecords(records);
+
+      expect('added' in result).toBe(true);
+      if ('added' in result) {
+        expect(result.deleted).toBe(0); // Aucun enregistrement supprimé
+        expect(result.added).toBe(1);   // 1 nouveau enregistrement ajouté
+      }
+    });
+  });
 });
