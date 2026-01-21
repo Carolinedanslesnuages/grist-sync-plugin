@@ -1104,7 +1104,7 @@ describe('GristClient', () => {
 
   describe('syncRecords - mode flush_fill', () => {
     it('devrait supprimer tous les enregistrements existants puis ajouter les nouveaux', async () => {
-      // Mock getRecords (appelé deux fois : une fois pour flush, une fois dans flushAndFillRecords)
+      // Mock getRecords (appelé une seule fois dans flushAndFillRecords)
       const mockGetResponse = {
         ok: true,
         json: async () => ({
@@ -1129,7 +1129,6 @@ describe('GristClient', () => {
 
       mockFetch
         .mockResolvedValueOnce(mockGetResponse)  // getRecords in flushAndFillRecords
-        .mockResolvedValueOnce(mockGetResponse)  // getRecords in deleteAllRecords
         .mockResolvedValueOnce(mockDeleteResponse) // deleteRecords
         .mockResolvedValueOnce(mockAddResponse); // addRecords
 

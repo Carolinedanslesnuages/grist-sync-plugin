@@ -741,7 +741,13 @@ export class GristClient {
     // Supprime tous les enregistrements existants
     if (existingRecords.length > 0) {
       try {
-        const deletedCount = await this.deleteAllRecords();
+        // Optimisation: utiliser directement les enregistrements déjà récupérés
+        const recordIds = existingRecords.map((record: GristRecord) => record.id);
+        this.log(`🗑️ Suppression de ${recordIds.length} enregistrement(s)...`, 'info');
+        
+        const deletedCount = await this.deleteRecords(recordIds);
+        this.log(`✅ ${deletedCount} enregistrement(s) supprimé(s)`, 'success');
+        
         result.deleted = deletedCount;
         result.details.push(`${deletedCount} enregistrement(s) supprimé(s)`);
       } catch (error) {
