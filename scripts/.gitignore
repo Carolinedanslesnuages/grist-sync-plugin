@@ -2,6 +2,7 @@
 config.json
 sync.log
 sync_report_*.json
+test_config.json
 
 # Environnement Python
 __pycache__/
