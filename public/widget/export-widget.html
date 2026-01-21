@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Export Grist - DSFR</title>
+  
+  <!-- Import DSFR CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/@gouvfr/dsfr@1.14.2/dist/dsfr.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/@gouvfr/dsfr@1.14.2/dist/utility/utility.min.css">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: "Marianne", Arial, sans-serif;
+      background: var(--background-default-grey);
+    }
+    
+    .widget-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .fr-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 1rem;
+    }
+    
+    .status-message {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 0.25rem;
+      display: none;
+    }
+    
+    .status-message.show {
+      display: block;
+    }
+    
+    .status-success {
+      background: var(--background-alt-green-bourgeon);
+      color: var(--text-default-success);
+      border-left: 4px solid var(--border-plain-success);
+    }
+    
+    .status-error {
+      background: var(--background-alt-red-marianne);
+      color: var(--text-default-error);
+      border-left: 4px solid var(--border-plain-error);
+    }
+    
+    .status-info {
+      background: var(--background-alt-blue-france);
+      color: var(--text-default-info);
+      border-left: 4px solid var(--border-plain-info);
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid var(--border-action-high-blue-france);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 0.5rem;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .record-info {
+      background: var(--background-contrast-grey);
+      padding: 1rem;
+      border-radius: 0.25rem;
+      margin-bottom: 1rem;
+    }
+    
+    .record-info dt {
+      font-weight: 700;
+      color: var(--text-label-grey);
+      margin-top: 0.5rem;
+    }
+    
+    .record-info dd {
+      margin-left: 0;
+      color: var(--text-default-grey);
+    }
+  </style>
+</head>
+<body>
+  <div class="widget-container">
+    <div class="fr-card">
+      <h1 class="fr-h4">Export vers l'API Centrale</h1>
+      <p class="fr-text--sm">
+        Widget de synchronisation Grist → API
+      </p>
+      
+      <div class="record-info" id="recordInfo">
+        <p class="fr-text--sm"><strong>Chargement des données de la ligne sélectionnée...</strong></p>
+      </div>
+      
+      <div class="fr-mb-2w">
+        <label class="fr-label" for="webhookUrl">
+          URL du Webhook Intermédiaire
+          <span class="fr-hint-text">URL du webhook (n8n, Pipedream, etc.) qui fera le relai vers l'API</span>
+        </label>
+        <input 
+          class="fr-input" 
+          type="url" 
+          id="webhookUrl" 
+          name="webhookUrl"
+          placeholder="https://webhook.n8n.cloud/webhook/..."
+          required
+        />
+      </div>
+      
+      <button 
+        class="fr-btn" 
+        id="exportBtn"
+        onclick="exportToAPI()"
+      >
+        Exporter vers l'API
+      </button>
+      
+      <div id="statusMessage" class="status-message"></div>
+    </div>
+    
+    <div class="fr-card">
+      <h2 class="fr-h6">Configuration requise</h2>
+      <ul class="fr-text--sm">
+        <li>Votre table Grist doit avoir une colonne <strong>"Origine_Bureau"</strong></li>
+        <li>Cette colonne doit contenir le nom du bureau (ex: "Paris", "Lyon")</li>
+        <li>Le webhook intermédiaire doit être configuré pour router vers la bonne API</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Grist Plugin API -->
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  
+  <!-- Import DSFR JS -->
+  <script src="https://unpkg.com/@gouvfr/dsfr@1.14.2/dist/dsfr.module.min.js" type="module"></script>
+  
+  <script>
+    let gristAPI;
+    let currentRecord = null;
+    let currentBureau = null;
+    
+    // Initialisation du widget
+    grist.ready({
+      requiredAccess: 'read table',
+      columns: [
+        { name: 'Origine_Bureau', optional: true, title: 'Bureau d\'origine', description: 'Colonne identifiant le bureau' }
+      ]
+    });
+    
+    // Écouter les changements de sélection dans Grist
+    grist.onRecord(function(record) {
+      currentRecord = record;
+      displayRecordInfo(record);
+    });
+    
+    // Afficher les informations de l'enregistrement sélectionné
+    function displayRecordInfo(record) {
+      const recordInfoDiv = document.getElementById('recordInfo');
+      
+      if (!record) {
+        recordInfoDiv.innerHTML = '<p class="fr-text--sm"><em>Aucune ligne sélectionnée</em></p>';
+        currentBureau = null;
+        return;
+      }
+      
+      // Récupérer le bureau d'origine
+      currentBureau = record.Origine_Bureau || 'Non défini';
+      
+      // Afficher les informations
+      let html = '<dl class="fr-text--sm">';
+      html += '<dt>Bureau d\'origine</dt>';
+      html += `<dd><strong>${escapeHtml(currentBureau)}</strong></dd>`;
+      html += '<dt>Données de la ligne</dt>';
+      html += '<dd><pre style="font-size: 0.75rem; overflow-x: auto;">' + escapeHtml(JSON.stringify(record, null, 2)) + '</pre></dd>';
+      html += '</dl>';
+      
+      recordInfoDiv.innerHTML = html;
+      
+      // Vérifier si la colonne Origine_Bureau existe
+      if (!record.Origine_Bureau) {
+        showStatus('Attention : La colonne "Origine_Bureau" n\'est pas définie pour cette ligne.', 'error');
+      }
+    }
+    
+    // Fonction d'export vers l'API
+    async function exportToAPI() {
+      const webhookUrl = document.getElementById('webhookUrl').value;
+      const exportBtn = document.getElementById('exportBtn');
+      
+      // Validation
+      if (!webhookUrl) {
+        showStatus('Veuillez saisir l\'URL du webhook intermédiaire.', 'error');
+        return;
+      }
+      
+      if (!currentRecord) {
+        showStatus('Veuillez sélectionner une ligne dans Grist.', 'error');
+        return;
+      }
+      
+      if (!currentBureau || currentBureau === 'Non défini') {
+        showStatus('La ligne sélectionnée doit avoir un bureau d\'origine défini.', 'error');
+        return;
+      }
+      
+      // Désactiver le bouton et afficher le chargement
+      exportBtn.disabled = true;
+      exportBtn.innerHTML = 'Export en cours...<span class="loading"></span>';
+      
+      try {
+        // Préparer les données à envoyer
+        const payload = {
+          bureau: currentBureau,
+          record: currentRecord,
+          timestamp: new Date().toISOString(),
+          source: 'grist-widget'
+        };
+        
+        // Envoyer au webhook intermédiaire
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        showStatus(`✓ Export réussi pour le bureau "${currentBureau}"`, 'success');
+        console.log('Export réussi:', result);
+        
+      } catch (error) {
+        console.error('Erreur lors de l\'export:', error);
+        showStatus(`✗ Erreur lors de l'export: ${error.message}`, 'error');
+      } finally {
+        // Réactiver le bouton
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = 'Exporter vers l\'API';
+      }
+    }
+    
+    // Afficher un message de statut
+    function showStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('statusMessage');
+      statusDiv.className = `status-message status-${type} show`;
+      statusDiv.innerHTML = message;
+      
+      // Auto-hide après 5 secondes pour les messages de succès
+      if (type === 'success') {
+        setTimeout(() => {
+          statusDiv.classList.remove('show');
+        }, 5000);
+      }
+    }
+    
+    // Fonction utilitaire pour échapper le HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Charger l'URL du webhook depuis le stockage local si disponible
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedWebhookUrl = localStorage.getItem('grist-webhook-url');
+      if (savedWebhookUrl) {
+        document.getElementById('webhookUrl').value = savedWebhookUrl;
+      }
+      
+      // Sauvegarder l'URL quand elle change
+      document.getElementById('webhookUrl').addEventListener('change', (e) => {
+        localStorage.setItem('grist-webhook-url', e.target.value);
+      });
+    });
+  </script>
+</body>
+</html>

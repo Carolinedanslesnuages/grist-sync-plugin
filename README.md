@@ -4,6 +4,23 @@
 
 Ce plugin permet de transférer des données depuis une API vers la plateforme [Grist](https://www.getgrist.com).
 
+## 🔄 Solution de Synchronisation Bi-directionnelle
+
+Ce projet propose maintenant une **solution complète de synchronisation bi-directionnelle** entre une API centrale et une flotte de documents Grist (architecture multi-bureaux).
+
+📖 **[Guide complet de la synchronisation bi-directionnelle](docs/BIDIRECTIONAL_SYNC.md)**
+
+### Fonctionnalités principales :
+
+- ✅ **Flux entrant (API → Grist)** : Script Python pour synchronisation quotidienne avec méthode Upsert
+- ✅ **Flux sortant (Grist → API)** : Custom Widget pour export manuel avec style DSFR
+- ✅ **Multi-tenants** : Architecture centralisée pour plusieurs documents Grist
+- ✅ **Sécurité** : Clés API protégées, communication via webhook intermédiaire
+
+**Démarrage rapide** :
+- [Script de synchronisation quotidienne](scripts/README.md)
+- [Widget d'export personnalisé](public/widget/README.md)
+
 ---
 
 ## 🚀 Pour les développeurs

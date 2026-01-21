@@ -1,0 +1,194 @@
+{
+  "name": "Grist Export - Webhook vers API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "grist-export",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook - Réception depuis Grist",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "VOTRE_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.bureau}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "name": "Validation - Bureau présent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://votre-api.example.com/api/import",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "bureau",
+              "value": "={{$json.bureau}}"
+            },
+            {
+              "name": "data",
+              "value": "={{$json.record}}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{$json.timestamp}}"
+            },
+            {
+              "name": "source",
+              "value": "grist"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "HTTP Request - Envoi vers API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 250],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "API Credentials"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify({\n  \"success\": true,\n  \"bureau\": $json.bureau,\n  \"message\": \"Données exportées avec succès\"\n})}}",
+        "options": {}
+      },
+      "name": "Response - Succès",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 250]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify({\n  \"success\": false,\n  \"error\": \"Bureau non spécifié\",\n  \"message\": \"La colonne Origine_Bureau doit être renseignée\"\n})}}",
+        "responseCode": 400,
+        "options": {}
+      },
+      "name": "Response - Erreur",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [650, 450]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "docId": "VOTRE_GOOGLE_SHEET_ID",
+        "sheetName": "Logs",
+        "columns": {
+          "mappings": [
+            {
+              "column": "timestamp",
+              "value": "={{$json.timestamp}}"
+            },
+            {
+              "column": "bureau",
+              "value": "={{$json.bureau}}"
+            },
+            {
+              "column": "record_id",
+              "value": "={{$json.record.id}}"
+            },
+            {
+              "column": "status",
+              "value": "success"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Google Sheets - Log (optionnel)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [850, 150],
+      "disabled": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2",
+          "name": "Google Sheets Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Réception depuis Grist": {
+      "main": [
+        [
+          {
+            "node": "Validation - Bureau présent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation - Bureau présent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Envoi vers API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Response - Erreur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Envoi vers API": {
+      "main": [
+        [
+          {
+            "node": "Response - Succès",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets - Log (optionnel)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

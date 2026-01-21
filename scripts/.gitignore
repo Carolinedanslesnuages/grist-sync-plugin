@@ -1,0 +1,14 @@
+# Fichiers de configuration et logs
+config.json
+sync.log
+sync_report_*.json
+
+# Environnement Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/

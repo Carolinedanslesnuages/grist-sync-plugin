@@ -1,0 +1,36 @@
+{
+  "api_source": {
+    "url": "https://votre-api.example.com/api/data",
+    "headers": {
+      "Authorization": "Bearer YOUR_API_TOKEN",
+      "Content-Type": "application/json"
+    },
+    "filter_field": "bureau"
+  },
+  "grist": {
+    "server": "https://docs.getgrist.com",
+    "api_key": "YOUR_GRIST_API_KEY"
+  },
+  "bureaux": [
+    {
+      "name": "Paris",
+      "grist_doc_id": "DOC_ID_PARIS",
+      "grist_table_id": "TableName"
+    },
+    {
+      "name": "Lyon",
+      "grist_doc_id": "DOC_ID_LYON",
+      "grist_table_id": "TableName"
+    },
+    {
+      "name": "Marseille",
+      "grist_doc_id": "DOC_ID_MARSEILLE",
+      "grist_table_id": "TableName"
+    },
+    {
+      "name": "Toulouse",
+      "grist_doc_id": "DOC_ID_TOULOUSE",
+      "grist_table_id": "TableName"
+    }
+  ]
+}
