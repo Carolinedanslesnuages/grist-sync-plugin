@@ -8,7 +8,9 @@ Ce plugin permet de transférer des données depuis une API vers la plateforme [
 
 Ce projet propose maintenant une **solution complète de synchronisation bi-directionnelle** entre une API centrale et une flotte de documents Grist (architecture multi-bureaux).
 
-📖 **[Guide complet de la synchronisation bi-directionnelle](docs/BIDIRECTIONAL_SYNC.md)**
+### 🚀 Démarrage Rapide
+
+📖 **[Guide de Démarrage Rapide (5-10 minutes)](docs/QUICKSTART.md)**
 
 ### Fonctionnalités principales :
 
@@ -17,9 +19,31 @@ Ce projet propose maintenant une **solution complète de synchronisation bi-dire
 - ✅ **Multi-tenants** : Architecture centralisée pour plusieurs documents Grist
 - ✅ **Sécurité** : Clés API protégées, communication via webhook intermédiaire
 
-**Démarrage rapide** :
-- [Script de synchronisation quotidienne](scripts/README.md)
-- [Widget d'export personnalisé](public/widget/README.md)
+### 📚 Documentation Complète
+
+- **[Guide Complet de Synchronisation](docs/BIDIRECTIONAL_SYNC.md)** - Documentation principale
+- **[Diagrammes d'Architecture](docs/ARCHITECTURE.md)** - Flux et schémas détaillés
+- **[Script Python de Synchronisation](scripts/README.md)** - Ingestion quotidienne
+- **[Widget d'Export Personnalisé](public/widget/README.md)** - Export manuel
+- **[Tests et Validation](public/widget/TESTING.md)** - Guide de test
+
+### ⚡ Installation Express
+
+```bash
+# 1. Flux entrant (API → Grist)
+cd scripts
+cp config.example.json config.json
+# Éditer config.json avec vos paramètres
+pip install -r requirements.txt
+python daily_sync.py
+
+# 2. Flux sortant (Grist → API)
+npm install
+npm run build
+# Le widget sera dans dist/widget/export-widget.html
+```
+
+Consultez le [Guide de Démarrage Rapide](docs/QUICKSTART.md) pour les instructions détaillées.
 
 ---
 
