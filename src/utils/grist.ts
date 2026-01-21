@@ -90,6 +90,7 @@ export interface SyncResult {
   added: number;
   updated: number;
   unchanged: number;
+  deleted: number;
   errors: number;
   details: string[];
 }
@@ -101,11 +102,13 @@ export interface DryRunResult {
   toAdd: Array<Record<string, any>>;
   toUpdate: Array<{ id: number; fields: Record<string, any>; changes?: Record<string, { old: any; new: any }> }>;
   unchanged: Array<{ id: number; fields: Record<string, any> }>;
+  toDelete?: Array<{ id: number; fields: Record<string, any> }>;
   summary: {
     totalRecords: number;
     recordsToAdd: number;
     recordsToUpdate: number;
     recordsUnchanged: number;
+    recordsToDelete?: number;
   };
 }
 
@@ -619,6 +622,154 @@ export class GristClient {
   }
 
   /**
+   * Supprime des enregistrements existants dans Grist
+   * 
+   * @param recordIds - Tableau d'IDs des enregistrements à supprimer
+   * @returns Promesse résolue avec le nombre d'enregistrements supprimés
+   * @throws Error si la requête échoue
+   */
+  async deleteRecords(recordIds: number[]): Promise<number> {
+    if (!recordIds || recordIds.length === 0) {
+      return 0;
+    }
+    
+    const url = this.buildApiUrl('/records');
+    
+    try {
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: this.buildHeaders(),
+        body: JSON.stringify(recordIds)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
+      }
+      
+      return recordIds.length;
+    } catch (error) {
+      const errorInfo = analyzeError(error, 'grist_sync');
+      this.log(`${errorInfo.title}: ${errorInfo.message}`, 'error');
+      this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      
+      if (error instanceof Error) {
+        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Supprime tous les enregistrements de la table Grist
+   * 
+   * @returns Promesse résolue avec le nombre d'enregistrements supprimés
+   * @throws Error si la requête échoue
+   */
+  async deleteAllRecords(): Promise<number> {
+    this.log('🗑️ Récupération de tous les enregistrements pour suppression...', 'info');
+    const existingRecords = await this.getRecords();
+    
+    if (existingRecords.length === 0) {
+      this.log('✓ Aucun enregistrement à supprimer', 'info');
+      return 0;
+    }
+    
+    const recordIds = existingRecords.map((record: GristRecord) => record.id);
+    this.log(`🗑️ Suppression de ${recordIds.length} enregistrement(s)...`, 'info');
+    
+    const deletedCount = await this.deleteRecords(recordIds);
+    this.log(`✅ ${deletedCount} enregistrement(s) supprimé(s)`, 'success');
+    
+    return deletedCount;
+  }
+
+  /**
+   * Effectue une synchronisation complète (Flush & Fill) :
+   * supprime tous les enregistrements existants puis ajoute les nouveaux
+   * 
+   * @param records - Enregistrements à ajouter après la suppression
+   * @param options - Options de synchronisation (dryRun)
+   * @returns Résultat de la synchronisation
+   */
+  async flushAndFillRecords(
+    records: Record<string, any>[],
+    options?: { dryRun?: boolean }
+  ): Promise<SyncResult | DryRunResult> {
+    if (!records || records.length === 0) {
+      throw new Error('Aucun enregistrement à synchroniser');
+    }
+    
+    const dryRun = options?.dryRun || false;
+    
+    // Récupère les enregistrements existants
+    this.log('🔍 Récupération des enregistrements existants...', 'info');
+    const existingRecords = await this.getRecords();
+    
+    // Mode dry-run : retourner seulement les statistiques
+    if (dryRun) {
+      this.log(`📊 Dry-run terminé: ${existingRecords.length} à supprimer, ${records.length} à ajouter`, 'info');
+      return {
+        toAdd: records,
+        toUpdate: [],
+        unchanged: [],
+        toDelete: existingRecords.map((r: GristRecord) => ({ id: r.id, fields: r.fields })),
+        summary: {
+          totalRecords: records.length,
+          recordsToAdd: records.length,
+          recordsToUpdate: 0,
+          recordsUnchanged: 0,
+          recordsToDelete: existingRecords.length
+        }
+      };
+    }
+    
+    // Si l'option autoCreateColumns est activée, créer les colonnes manquantes
+    if (this.config.autoCreateColumns !== false) {
+      await this.ensureColumnsExist(records);
+    }
+    
+    const result: SyncResult = {
+      added: 0,
+      updated: 0,
+      unchanged: 0,
+      deleted: 0,
+      errors: 0,
+      details: []
+    };
+    
+    // Supprime tous les enregistrements existants
+    if (existingRecords.length > 0) {
+      try {
+        const deletedCount = await this.deleteAllRecords();
+        result.deleted = deletedCount;
+        result.details.push(`${deletedCount} enregistrement(s) supprimé(s)`);
+      } catch (error) {
+        result.errors++;
+        result.details.push(`Erreur lors de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        this.log(`❌ Erreur lors de la suppression`, 'error');
+        throw error; // On arrête si la suppression échoue
+      }
+    }
+    
+    // Ajoute les nouveaux enregistrements
+    this.log(`➕ Ajout de ${records.length} nouvel(aux) enregistrement(s)...`, 'info');
+    try {
+      const addResult = await this.addRecords(records);
+      result.added = addResult.records.length;
+      result.details.push(`${addResult.records.length} enregistrement(s) ajouté(s)`);
+      this.log(`✅ ${addResult.records.length} enregistrement(s) ajouté(s)`, 'success');
+    } catch (error) {
+      result.errors++;
+      result.details.push(`Erreur lors de l'ajout: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      this.log(`❌ Erreur lors de l'ajout`, 'error');
+      throw error;
+    }
+    
+    return result;
+  }
+
+  /**
    * Effectue une synchronisation intelligente (upsert) : ajoute les nouveaux enregistrements et met à jour les existants
    * 
    * @param records - Enregistrements à synchroniser
@@ -636,6 +787,11 @@ export class GristClient {
     const syncMode = this.config.syncMode || 'add';
     const uniqueKey = this.config.uniqueKey;
     const dryRun = options?.dryRun || false;
+    
+    // Mode 'flush_fill' : supprimer tous les enregistrements existants et ré-ajouter les nouveaux
+    if (syncMode === 'flush_fill') {
+      return await this.flushAndFillRecords(records, options);
+    }
     
     // Si l'option autoCreateColumns est activée, créer les colonnes manquantes
     if (this.config.autoCreateColumns !== false && !dryRun) {
@@ -663,6 +819,7 @@ export class GristClient {
         added: result.records.length,
         updated: 0,
         unchanged: 0,
+        deleted: 0,
         errors: 0,
         details: [`${result.records.length} enregistrement(s) ajouté(s)`]
       };
@@ -753,6 +910,7 @@ export class GristClient {
       added: 0,
       updated: 0,
       unchanged: unchanged.length,
+      deleted: 0,
       errors: 0,
       details: []
     };
