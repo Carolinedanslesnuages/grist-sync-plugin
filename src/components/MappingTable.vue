@@ -16,6 +16,8 @@ interface Props {
   sampleData?: Record<string, any>;
   /** Liste des colonnes existantes dans Grist */
   existingGristColumns?: string[];
+  /** Mode inversé : Grist → API (par défaut : API → Grist) */
+  reverseMode?: boolean;
 }
 
 interface Emits {
@@ -181,7 +183,7 @@ const newColumnsList = computed(() => {
     <div class="table-header">
       <h3 class="fr-h5">📋 Configuration du mapping (façon Excel)</h3>
       <p class="fr-text--sm">
-        Définissez la correspondance entre vos colonnes Grist et les champs de l'API
+        {{ reverseMode ? 'Définissez la correspondance entre vos colonnes Grist et les champs de destination API' : 'Définissez la correspondance entre vos colonnes Grist et les champs de l\'API' }}
       </p>
     </div>
     
@@ -262,9 +264,9 @@ const newColumnsList = computed(() => {
             <tr>
               <th scope="col" class="col-checkbox">Actif</th>
               <th scope="col" class="col-number">#</th>
-              <th scope="col" class="col-grist">Colonne Grist</th>
-              <th scope="col" class="col-arrow">→</th>
-              <th scope="col" class="col-api">Champ API</th>
+              <th scope="col" class="col-grist">{{ reverseMode ? 'Colonne Grist (source)' : 'Colonne Grist' }}</th>
+              <th scope="col" class="col-arrow">{{ reverseMode ? '→' : '←' }}</th>
+              <th scope="col" class="col-api">{{ reverseMode ? 'Champ API (destination)' : 'Champ API' }}</th>
               <th scope="col" class="col-actions">Actions</th>
             </tr>
           </thead>
@@ -314,7 +316,7 @@ const newColumnsList = computed(() => {
                 </div>
               </td>
               <td class="col-arrow">
-                <span class="arrow" aria-hidden="true">←</span>
+                <span class="arrow" aria-hidden="true">{{ reverseMode ? '→' : '←' }}</span>
               </td>
               <td class="col-api">
                 <input

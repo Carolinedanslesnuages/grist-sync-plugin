@@ -370,6 +370,7 @@ export function setNestedValue(obj: any, path: string, value: any): void {
   // Parcourt tous les keys sauf le dernier
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
+    if (!key) continue; // Skip empty keys
     
     // Crée l'objet intermédiaire si nécessaire
     if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
@@ -381,7 +382,9 @@ export function setNestedValue(obj: any, path: string, value: any): void {
   
   // Définit la valeur finale
   const lastKey = keys[keys.length - 1];
-  current[lastKey] = value;
+  if (lastKey) {
+    current[lastKey] = value;
+  }
 }
 
 /**
