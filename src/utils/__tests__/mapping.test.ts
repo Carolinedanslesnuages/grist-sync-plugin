@@ -612,6 +612,41 @@ describe('setNestedValue', () => {
       }
     });
   });
+
+  it('devrait protéger contre la pollution de prototype avec __proto__', () => {
+    const obj: any = {};
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    setNestedValue(obj, '__proto__.polluted', 'evil');
+    
+    expect(consoleWarnSpy).toHaveBeenCalled();
+    expect((Object.prototype as any).polluted).toBeUndefined();
+    
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('devrait protéger contre la pollution de prototype avec constructor', () => {
+    const obj: any = {};
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    setNestedValue(obj, 'constructor.polluted', 'evil');
+    
+    expect(consoleWarnSpy).toHaveBeenCalled();
+    
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('devrait protéger contre la pollution de prototype dans les chemins imbriqués', () => {
+    const obj: any = {};
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    setNestedValue(obj, 'user.__proto__.polluted', 'evil');
+    
+    expect(consoleWarnSpy).toHaveBeenCalled();
+    expect((Object.prototype as any).polluted).toBeUndefined();
+    
+    consoleWarnSpy.mockRestore();
+  });
 });
 
 describe('transformGristToApi', () => {

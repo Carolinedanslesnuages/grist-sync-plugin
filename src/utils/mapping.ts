@@ -278,14 +278,15 @@ export function generateMappingsFromApiData(sampleData: any, defaultEnabled = tr
 
 /**
  * Désérialise une valeur provenant de Grist pour la transformer en type JSON
+ * Deserializes a value from Grist to transform it into a JSON type
  * 
- * - Strings contenant ";" : convertit en tableau
- * - Strings JSON : parse en objet/tableau
- * - Strings de dates ISO : convertit en Date
- * - Autres : retourne tel quel
+ * - Strings contenant ";" : convertit en tableau / Strings containing ";": converts to array
+ * - Strings JSON : parse en objet/tableau / JSON strings: parses to object/array
+ * - Strings de dates ISO : convertit en Date / ISO date strings: converts to Date
+ * - Autres : retourne tel quel / Others: returns as is
  * 
- * @param value - La valeur à désérialiser
- * @returns La valeur désérialisée
+ * @param value - La valeur à désérialiser / The value to deserialize
+ * @returns La valeur désérialisée / The deserialized value
  * 
  * @example
  * deserializeValue("a;b;c") // ["a", "b", "c"]
@@ -309,12 +310,9 @@ export function deserializeValue(value: any): any {
   }
   
   // Essaie de parser comme JSON
-  if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
-    try {
-      return JSON.parse(value);
-    } catch {
-      // Si le parsing échoue, continue vers les autres conversions
-    }
+  const parsedJson = tryParseJson(value);
+  if (parsedJson !== null) {
+    return parsedJson;
   }
   
   // Détecte les listes séparées par ";"
@@ -324,14 +322,8 @@ export function deserializeValue(value: any): any {
     return parts.map(part => {
       const trimmed = part.trim();
       // Si l'élément ressemble à du JSON, essaie de le parser
-      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
-        try {
-          return JSON.parse(trimmed);
-        } catch {
-          return trimmed;
-        }
-      }
-      return trimmed;
+      const parsed = tryParseJson(trimmed);
+      return parsed !== null ? parsed : trimmed;
     });
   }
   
@@ -349,12 +341,32 @@ export function deserializeValue(value: any): any {
 }
 
 /**
+ * Essaie de parser une chaîne JSON
+ * Tries to parse a JSON string
+ * 
+ * @param value - La valeur à parser / The value to parse
+ * @returns L'objet parsé ou null si le parsing échoue / The parsed object or null if parsing fails
+ */
+function tryParseJson(value: string): any | null {
+  if ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'))) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
  * Définit une valeur dans un objet en utilisant un chemin (supporte la notation pointée)
  * Crée les objets intermédiaires si nécessaire
+ * Sets a value in an object using a path (supports dot notation)
+ * Creates intermediate objects if necessary
  * 
- * @param obj - L'objet cible
- * @param path - Le chemin vers la propriété (ex: "user.name")
- * @param value - La valeur à définir
+ * @param obj - L'objet cible / The target object
+ * @param path - Le chemin vers la propriété (ex: "user.name") / The path to the property (e.g., "user.name")
+ * @param value - La valeur à définir / The value to set
  * 
  * @example
  * const obj = {};
@@ -372,6 +384,13 @@ export function setNestedValue(obj: any, path: string, value: any): void {
     const key = keys[i];
     if (!key) continue; // Skip empty keys
     
+    // Protection contre la pollution de prototype
+    // Guard against prototype pollution
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      console.warn(`⚠️ Attempted to set dangerous property: ${key}`);
+      return;
+    }
+    
     // Crée l'objet intermédiaire si nécessaire
     if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
       current[key] = {};
@@ -383,6 +402,13 @@ export function setNestedValue(obj: any, path: string, value: any): void {
   // Définit la valeur finale
   const lastKey = keys[keys.length - 1];
   if (lastKey) {
+    // Protection contre la pollution de prototype
+    // Guard against prototype pollution
+    if (lastKey === '__proto__' || lastKey === 'constructor' || lastKey === 'prototype') {
+      console.warn(`⚠️ Attempted to set dangerous property: ${lastKey}`);
+      return;
+    }
+    
     current[lastKey] = value;
   }
 }

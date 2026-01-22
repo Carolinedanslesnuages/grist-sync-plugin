@@ -166,10 +166,17 @@ export class BackendClient {
       // Analyse l'erreur avec notre gestionnaire d'erreurs
       const errorInfo = analyzeError(error, 'api_send');
       this.log(`${errorInfo.title}: ${errorInfo.message}`, 'error');
-      this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      
+      // Affiche la première solution si disponible
+      if (errorInfo.solutions && errorInfo.solutions.length > 0) {
+        this.log(`💡 ${errorInfo.solutions[0]}`, 'error');
+      }
       
       if (error instanceof Error) {
-        throw new Error(`${errorInfo.message} - ${errorInfo.solutions[0]}`);
+        const solution = errorInfo.solutions && errorInfo.solutions.length > 0 
+          ? ` - ${errorInfo.solutions[0]}` 
+          : '';
+        throw new Error(`${errorInfo.message}${solution}`);
       }
       throw error;
     }
