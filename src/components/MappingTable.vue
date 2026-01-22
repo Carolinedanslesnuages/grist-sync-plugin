@@ -151,7 +151,9 @@ const enabledCount = computed(() => {
  */
 function isExistingColumn(columnName: string): boolean {
   if (!props.existingGristColumns || !columnName) return false;
-  return props.existingGristColumns.some(col => col.toLowerCase() === columnName.toLowerCase());
+  return props.existingGristColumns.some(col => 
+    col !== null && col !== undefined && typeof col === 'string' && col.toLowerCase() === columnName.toLowerCase()
+  );
 }
 
 /**
