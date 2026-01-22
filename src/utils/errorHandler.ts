@@ -162,8 +162,16 @@ function analyzeHttpError(status: number, error: any, context: string): ErrorInf
         message: 'Permissions insuffisantes',
         explanation: context === 'grist_sync'
           ? 'Votre token API Grist n\'a pas les permissions nécessaires pour modifier ce document ou cette table.'
+          : context === 'api_send'
+          ? 'L\'API backend refuse l\'accès. Cela est souvent dû à un problème d\'authentification (token manquant ou invalide) ou à des permissions insuffisantes.'
           : 'Votre backend ou l\'API distante refuse l\'accès à cette ressource.',
-        solutions: [
+        solutions: context === 'api_send' ? [
+          '✓ Vérifiez que vous avez configuré l\'authentification (Bearer token ou API Key)',
+          '✓ Vérifiez que le token/clé API est correct et n\'a pas expiré',
+          '✓ Vérifiez que l\'endpoint autorise les requêtes POST',
+          '✓ Vérifiez les permissions associées à votre token/clé',
+          '✓ Consultez la documentation de l\'API pour les exigences d\'authentification'
+        ] : [
           '✓ Vérifiez que vous avez les droits d\'accès sur le document/table',
           context === 'grist_sync'
             ? '✓ Vérifiez les permissions du token API dans les paramètres Grist'
