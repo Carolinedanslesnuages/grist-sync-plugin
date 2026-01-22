@@ -5,9 +5,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   serializeValue,
+  deserializeValue,
   getNestedValue,
+  setNestedValue,
   transformRecord,
   transformRecords,
+  transformGristToApi,
+  transformGristRecordsToApi,
   isValidMapping,
   getValidMappings,
   extractAllKeys,
@@ -505,5 +509,256 @@ describe('generateMappingsFromApiData', () => {
     const tagMapping = result.find(m => m.apiField === 'tags');
     expect(tagMapping).toBeDefined();
     expect(tagMapping?.gristColumn).toBe('tags');
+  });
+});
+
+describe('deserializeValue', () => {
+  it('devrait retourner null pour null', () => {
+    expect(deserializeValue(null)).toBe(null);
+  });
+
+  it('devrait retourner undefined pour undefined', () => {
+    expect(deserializeValue(undefined)).toBe(undefined);
+  });
+
+  it('devrait retourner les primitives telles quelles', () => {
+    expect(deserializeValue(42)).toBe(42);
+    expect(deserializeValue(true)).toBe(true);
+    expect(deserializeValue(false)).toBe(false);
+  });
+
+  it('devrait retourner une chaîne vide telle quelle', () => {
+    expect(deserializeValue('')).toBe('');
+  });
+
+  it('devrait désérialiser une liste séparée par ";"', () => {
+    expect(deserializeValue('a;b;c')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('devrait désérialiser une liste avec des espaces', () => {
+    expect(deserializeValue('a; b; c')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('devrait désérialiser une liste d\'objets JSON', () => {
+    const result = deserializeValue('{"x":1};{"y":2}');
+    expect(result).toEqual([{ x: 1 }, { y: 2 }]);
+  });
+
+  it('devrait parser un objet JSON', () => {
+    expect(deserializeValue('{"x":1,"y":2}')).toEqual({ x: 1, y: 2 });
+  });
+
+  it('devrait parser un tableau JSON', () => {
+    expect(deserializeValue('[1,2,3]')).toEqual([1, 2, 3]);
+  });
+
+  it('devrait parser une date ISO', () => {
+    const result = deserializeValue('2024-01-15T10:30:00.000Z');
+    expect(result).toBeInstanceOf(Date);
+    expect((result as Date).toISOString()).toBe('2024-01-15T10:30:00.000Z');
+  });
+
+  it('devrait retourner une chaîne normale telle quelle', () => {
+    expect(deserializeValue('hello world')).toBe('hello world');
+  });
+
+  it('devrait gérer un JSON invalide gracieusement', () => {
+    expect(deserializeValue('{invalid json}')).toBe('{invalid json}');
+  });
+});
+
+describe('setNestedValue', () => {
+  it('devrait définir une valeur de premier niveau', () => {
+    const obj: any = {};
+    setNestedValue(obj, 'name', 'Alice');
+    expect(obj).toEqual({ name: 'Alice' });
+  });
+
+  it('devrait définir une valeur imbriquée', () => {
+    const obj: any = {};
+    setNestedValue(obj, 'user.name', 'Alice');
+    expect(obj).toEqual({ user: { name: 'Alice' } });
+  });
+
+  it('devrait définir une valeur profondément imbriquée', () => {
+    const obj: any = {};
+    setNestedValue(obj, 'user.profile.age', 30);
+    expect(obj).toEqual({ user: { profile: { age: 30 } } });
+  });
+
+  it('devrait ne pas écraser les objets existants', () => {
+    const obj: any = { user: { name: 'Alice' } };
+    setNestedValue(obj, 'user.email', 'alice@example.com');
+    expect(obj).toEqual({
+      user: {
+        name: 'Alice',
+        email: 'alice@example.com'
+      }
+    });
+  });
+
+  it('devrait gérer un chemin vide gracieusement', () => {
+    const obj: any = { name: 'Alice' };
+    setNestedValue(obj, '', 'value');
+    expect(obj).toEqual({ name: 'Alice' });
+  });
+
+  it('devrait écraser une valeur primitive par un objet si nécessaire', () => {
+    const obj: any = { user: 'Alice' };
+    setNestedValue(obj, 'user.email', 'alice@example.com');
+    expect(obj).toEqual({
+      user: {
+        email: 'alice@example.com'
+      }
+    });
+  });
+});
+
+describe('transformGristToApi', () => {
+  it('devrait transformer un enregistrement Grist simple', () => {
+    const gristRecord = { Name: 'Alice', Email: 'alice@example.com' };
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'Name', apiField: 'name' },
+      { gristColumn: 'Email', apiField: 'email' }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      name: 'Alice',
+      email: 'alice@example.com'
+    });
+  });
+
+  it('devrait reconstruire un objet imbriqué', () => {
+    const gristRecord = { user_name: 'Alice', user_email: 'alice@example.com' };
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'user_name', apiField: 'user.name' },
+      { gristColumn: 'user_email', apiField: 'user.email' }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      user: {
+        name: 'Alice',
+        email: 'alice@example.com'
+      }
+    });
+  });
+
+  it('devrait reconstruire un objet profondément imbriqué', () => {
+    const gristRecord = { profile_age: 30 };
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'profile_age', apiField: 'user.profile.age' }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      user: {
+        profile: {
+          age: 30
+        }
+      }
+    });
+  });
+
+  it('devrait désérialiser les listes séparées par ";"', () => {
+    const gristRecord = { tags: 'tag1;tag2;tag3' };
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'tags', apiField: 'tags' }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      tags: ['tag1', 'tag2', 'tag3']
+    });
+  });
+
+  it('devrait désérialiser les objets JSON', () => {
+    const gristRecord = { metadata: '{"key":"value","count":5}' };
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'metadata', apiField: 'metadata' }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      metadata: { key: 'value', count: 5 }
+    });
+  });
+
+  it('devrait ignorer les mappings désactivés', () => {
+    const gristRecord = { Name: 'Alice', Email: 'alice@example.com' };
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'Name', apiField: 'name', enabled: true },
+      { gristColumn: 'Email', apiField: 'email', enabled: false }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      name: 'Alice'
+    });
+  });
+
+  it('devrait ignorer les mappings sans apiField', () => {
+    const gristRecord = { Name: 'Alice', Custom: 'value' };
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'Name', apiField: 'name' },
+      { gristColumn: 'Custom', apiField: '' }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      name: 'Alice'
+    });
+  });
+
+  it('devrait appliquer une transformation personnalisée', () => {
+    const gristRecord = { Name: 'alice' };
+    const mappings: FieldMapping[] = [
+      {
+        gristColumn: 'Name',
+        apiField: 'name',
+        transform: (value: any) => value.toUpperCase()
+      }
+    ];
+
+    const result = transformGristToApi(gristRecord, mappings);
+    expect(result).toEqual({
+      name: 'ALICE'
+    });
+  });
+});
+
+describe('transformGristRecordsToApi', () => {
+  it('devrait transformer un tableau d\'enregistrements Grist', () => {
+    const gristRecords = [
+      { Name: 'Alice', Score: 85 },
+      { Name: 'Bob', Score: 92 }
+    ];
+
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'Name', apiField: 'name' },
+      { gristColumn: 'Score', apiField: 'score' }
+    ];
+
+    const result = transformGristRecordsToApi(gristRecords, mappings);
+    expect(result).toEqual([
+      { name: 'Alice', score: 85 },
+      { name: 'Bob', score: 92 }
+    ]);
+  });
+
+  it('devrait retourner un tableau vide pour une entrée non-tableau', () => {
+    const notArray = { Name: 'Alice' } as any;
+    const mappings: FieldMapping[] = [
+      { gristColumn: 'Name', apiField: 'name' }
+    ];
+
+    const result = transformGristRecordsToApi(notArray, mappings);
+    expect(result).toEqual([]);
+  });
+
+  it('devrait retourner un tableau vide pour un tableau vide', () => {
+    const result = transformGristRecordsToApi([], []);
+    expect(result).toEqual([]);
   });
 });
